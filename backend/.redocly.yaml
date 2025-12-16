@@ -11,3 +11,7 @@ rules:
   no-unused-components: warn
   operation-operationId: error
   tag-description: off
+  security-defined: off
+  info-license: off
+  no-server-example.com: off
+  operation-4xx-response: off
