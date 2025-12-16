@@ -1,0 +1,10 @@
+FROM arigaio/atlas:latest
+
+WORKDIR /app
+
+# Copy migration files and config
+COPY atlas.hcl ./
+COPY internal/ent/migrate/migrations ./internal/ent/migrate/migrations
+
+# Run migration apply
+ENTRYPOINT ["atlas", "migrate", "apply", "--config", "file://atlas.hcl", "--env", "local"]

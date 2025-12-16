@@ -43,6 +43,24 @@ services:
       retries: 5
       start_period: 10s
 
+  # Atlas Migration（自動マイグレーション）
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    container_name: goodtodo-migrate
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB_HOST=db
+      - POSTGRES_DB_PORT=${POSTGRES_DB_PORT}
+      - POSTGRES_DB_USER=${POSTGRES_DB_USER}
+      - POSTGRES_DB_PASSWORD=${POSTGRES_DB_PASSWORD}
+      - POSTGRES_DB_NAME=${POSTGRES_DB_NAME}
+    depends_on:
+      db:
+        condition: service_healthy
+
   # Public APIサーバー
   api:
     build:
@@ -65,6 +83,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - .:/app
     extra_hosts:
