@@ -5,6 +5,7 @@
  * Public API for Good Todo application
  * OpenAPI spec version: 0.0.1
  */
+import type { TodoCreator } from './todoCreator';
 
 export interface TodoResponse {
   id?: string;
@@ -19,6 +20,8 @@ export interface TodoResponse {
   due_date?: string | null;
   /** @nullable */
   completed_at?: string | null;
+  /** The user who created this todo (included for public todos) */
+  created_by?: TodoCreator;
   created_at?: string;
   updated_at?: string;
 }

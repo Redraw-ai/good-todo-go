@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Globe, Lock, Pencil } from 'lucide-react';
+import { Trash2, Globe, Lock, Pencil, Eye, User } from 'lucide-react';
 import { TodoResponse } from '@/api/public/model/components-schemas-todo';
 import { useUpdateTodo, useDeleteTodo, getGetTodosQueryKey, getGetPublicTodosQueryKey } from '@/api/public/todo/todo';
 import { useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { EditTodoDialog } from './edit-todo-dialog';
+import { ViewTodoDialog } from './view-todo-dialog';
 
 interface TodoItemProps {
   todo: TodoResponse;
@@ -22,6 +23,7 @@ export function TodoItem({ todo, isOwner = false }: TodoItemProps) {
   const queryClient = useQueryClient();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
 
   const updateTodo = useUpdateTodo();
   const deleteTodo = useDeleteTodo();
@@ -107,14 +109,22 @@ export function TodoItem({ todo, isOwner = false }: TodoItemProps) {
           {todo.description && (
             <p className="text-sm text-gray-500 truncate">{todo.description}</p>
           )}
-          {todo.due_date && (
-            <p className="text-xs text-gray-400 mt-1">
-              期限: {format(new Date(todo.due_date), 'yyyy年M月d日', { locale: ja })}
-            </p>
-          )}
+          <div className="flex items-center gap-3 mt-1">
+            {todo.due_date && (
+              <p className="text-xs text-gray-400">
+                期限: {format(new Date(todo.due_date), 'yyyy年M月d日', { locale: ja })}
+              </p>
+            )}
+            {!isOwner && todo.created_by && (
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {todo.created_by.name}
+              </p>
+            )}
+          </div>
         </div>
 
-        {isOwner && (
+        {isOwner ? (
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -148,12 +158,27 @@ export function TodoItem({ todo, isOwner = false }: TodoItemProps) {
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+        ) : (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsViewDialogOpen(true)}
+            title="詳細を見る"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
         )}
 
         <EditTodoDialog
           todo={todo}
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
+        />
+
+        <ViewTodoDialog
+          todo={todo}
+          open={isViewDialogOpen}
+          onOpenChange={setIsViewDialogOpen}
         />
       </CardContent>
     </Card>

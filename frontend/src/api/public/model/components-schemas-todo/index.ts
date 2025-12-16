@@ -7,6 +7,7 @@
  */
 
 export * from './createTodoRequest';
+export * from './todoCreator';
 export * from './todoListResponse';
 export * from './todoResponse';
 export * from './updateTodoRequest';
