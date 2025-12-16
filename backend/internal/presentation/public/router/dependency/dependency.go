@@ -30,18 +30,22 @@ func BuildContainer() *dig.Container {
 	// repository
 	container.Provide(repository.NewAuthRepository)
 	container.Provide(repository.NewUserRepository)
+	container.Provide(repository.NewTodoRepository)
 
 	// usecase
 	container.Provide(usecase.NewAuthInteractor)
 	container.Provide(usecase.NewUserInteractor)
+	container.Provide(usecase.NewTodoInteractor)
 
 	// presenter
 	container.Provide(presenter.NewAuthPresenter)
 	container.Provide(presenter.NewUserPresenter)
+	container.Provide(presenter.NewTodoPresenter)
 
 	// controller
 	container.Provide(controller.NewAuthController)
 	container.Provide(controller.NewUserController)
+	container.Provide(controller.NewTodoController)
 
 	return container
 }

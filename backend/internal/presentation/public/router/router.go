@@ -25,6 +25,7 @@ type Server struct {
 	jwtService     *pkg.JWTService
 	authController *controller.AuthController
 	userController *controller.UserController
+	todoController *controller.TodoController
 }
 
 func NewServer(
@@ -32,12 +33,14 @@ func NewServer(
 	jwtService *pkg.JWTService,
 	authController *controller.AuthController,
 	userController *controller.UserController,
+	todoController *controller.TodoController,
 ) *Server {
 	return &Server{
 		env:            env,
 		jwtService:     jwtService,
 		authController: authController,
 		userController: userController,
+		todoController: todoController,
 	}
 }
 
