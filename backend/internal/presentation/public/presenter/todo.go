@@ -72,5 +72,12 @@ func toTodoResponse(out *output.TodoOutput) *api.TodoResponse {
 		resp.DueDate = &dueDate
 	}
 
+	if out.CreatedBy != nil {
+		resp.CreatedBy = &api.TodoCreator{
+			Id:   out.CreatedBy.ID,
+			Name: out.CreatedBy.Name,
+		}
+	}
+
 	return resp
 }

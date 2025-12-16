@@ -22,15 +22,18 @@ type ITodoInteractor interface {
 
 type TodoInteractor struct {
 	todoRepo repository.ITodoRepository
+	userRepo repository.IUserRepository
 	uuidGen  pkg.IUUIDGenerator
 }
 
 func NewTodoInteractor(
 	todoRepo repository.ITodoRepository,
+	userRepo repository.IUserRepository,
 	uuidGen pkg.IUUIDGenerator,
 ) ITodoInteractor {
 	return &TodoInteractor{
 		todoRepo: todoRepo,
+		userRepo: userRepo,
 		uuidGen:  uuidGen,
 	}
 }
@@ -76,7 +79,27 @@ func (i *TodoInteractor) GetPublicTodos(ctx context.Context, in *input.GetPublic
 		return nil, cerror.NewInternalServerError("failed to count public todos", err)
 	}
 
-	return output.NewTodoListOutput(todos, total), nil
+	// Collect unique user IDs and fetch user info
+	userIDs := make([]string, 0, len(todos))
+	seen := make(map[string]bool)
+	for _, t := range todos {
+		if !seen[t.UserID] {
+			seen[t.UserID] = true
+			userIDs = append(userIDs, t.UserID)
+		}
+	}
+
+	users, err := i.userRepo.FindByIDs(ctx, userIDs)
+	if err != nil {
+		return nil, cerror.NewInternalServerError("failed to get users", err)
+	}
+
+	userMap := make(map[string]*model.User, len(users))
+	for _, u := range users {
+		userMap[u.ID] = u
+	}
+
+	return output.NewTodoListOutputWithCreators(todos, total, userMap), nil
 }
 
 func (i *TodoInteractor) GetTodo(ctx context.Context, todoID, userID string) (*output.TodoOutput, error) {

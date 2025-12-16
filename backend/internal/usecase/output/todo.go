@@ -4,6 +4,11 @@ import (
 	"good-todo-go/internal/domain/model"
 )
 
+type TodoCreatorOutput struct {
+	ID   string
+	Name string
+}
+
 type TodoOutput struct {
 	ID          string
 	UserID      string
@@ -12,6 +17,7 @@ type TodoOutput struct {
 	Completed   bool
 	IsPublic    bool
 	DueDate     *string
+	CreatedBy   *TodoCreatorOutput
 	CreatedAt   string
 	UpdatedAt   string
 }
@@ -41,10 +47,33 @@ func NewTodoOutput(todo *model.Todo) *TodoOutput {
 	}
 }
 
+func NewTodoOutputWithCreator(todo *model.Todo, creator *model.User) *TodoOutput {
+	output := NewTodoOutput(todo)
+	if creator != nil {
+		output.CreatedBy = &TodoCreatorOutput{
+			ID:   creator.ID,
+			Name: creator.Name,
+		}
+	}
+	return output
+}
+
 func NewTodoListOutput(todos []*model.Todo, total int) *TodoListOutput {
 	outputs := make([]*TodoOutput, len(todos))
 	for i, t := range todos {
 		outputs[i] = NewTodoOutput(t)
+	}
+
+	return &TodoListOutput{
+		Todos: outputs,
+		Total: total,
+	}
+}
+
+func NewTodoListOutputWithCreators(todos []*model.Todo, total int, userMap map[string]*model.User) *TodoListOutput {
+	outputs := make([]*TodoOutput, len(todos))
+	for i, t := range todos {
+		outputs[i] = NewTodoOutputWithCreator(t, userMap[t.UserID])
 	}
 
 	return &TodoListOutput{

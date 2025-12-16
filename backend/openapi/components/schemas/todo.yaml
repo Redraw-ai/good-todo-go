@@ -1,3 +1,14 @@
+TodoCreator:
+  type: object
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+  required:
+    - id
+    - name
+
 TodoResponse:
   type: object
   properties:
@@ -23,6 +34,9 @@ TodoResponse:
       type: string
       format: date-time
       nullable: true
+    created_by:
+      $ref: "#/TodoCreator"
+      description: The user who created this todo (included for public todos)
     created_at:
       type: string
       format: date-time
