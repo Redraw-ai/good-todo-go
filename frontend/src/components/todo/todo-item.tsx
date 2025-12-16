@@ -4,13 +4,14 @@ import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Trash2, Globe, Lock } from 'lucide-react';
+import { Trash2, Globe, Lock, Pencil } from 'lucide-react';
 import { TodoResponse } from '@/api/public/model/components-schemas-todo';
 import { useUpdateTodo, useDeleteTodo, getGetTodosQueryKey, getGetPublicTodosQueryKey } from '@/api/public/todo/todo';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import { EditTodoDialog } from './edit-todo-dialog';
 
 interface TodoItemProps {
   todo: TodoResponse;
@@ -20,6 +21,7 @@ interface TodoItemProps {
 export function TodoItem({ todo, isOwner = false }: TodoItemProps) {
   const queryClient = useQueryClient();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const updateTodo = useUpdateTodo();
   const deleteTodo = useDeleteTodo();
@@ -117,6 +119,14 @@ export function TodoItem({ todo, isOwner = false }: TodoItemProps) {
             <Button
               variant="ghost"
               size="icon"
+              onClick={() => setIsEditDialogOpen(true)}
+              title="編集"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleTogglePublic}
               disabled={updateTodo.isPending}
               title={todo.is_public ? '非公開にする' : '公開する'}
@@ -139,6 +149,12 @@ export function TodoItem({ todo, isOwner = false }: TodoItemProps) {
             </Button>
           </div>
         )}
+
+        <EditTodoDialog
+          todo={todo}
+          open={isEditDialogOpen}
+          onOpenChange={setIsEditDialogOpen}
+        />
       </CardContent>
     </Card>
   );
