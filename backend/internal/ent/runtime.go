@@ -6,6 +6,7 @@ import (
 	"good-todo-go/internal/ent/schema"
 	"good-todo-go/internal/ent/tenant"
 	"good-todo-go/internal/ent/tenanttodoview"
+	"good-todo-go/internal/ent/tenantuserview"
 	"good-todo-go/internal/ent/todo"
 	"good-todo-go/internal/ent/user"
 	"time"
@@ -49,6 +50,16 @@ func init() {
 	tenanttodoviewDescUpdatedAt := tenanttodoviewFields[11].Descriptor()
 	// tenanttodoview.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	tenanttodoview.DefaultUpdatedAt = tenanttodoviewDescUpdatedAt.Default.(func() time.Time)
+	tenantuserviewFields := schema.TenantUserView{}.Fields()
+	_ = tenantuserviewFields
+	// tenantuserviewDescCreatedAt is the schema descriptor for created_at field.
+	tenantuserviewDescCreatedAt := tenantuserviewFields[8].Descriptor()
+	// tenantuserview.DefaultCreatedAt holds the default value on creation for the created_at field.
+	tenantuserview.DefaultCreatedAt = tenantuserviewDescCreatedAt.Default.(func() time.Time)
+	// tenantuserviewDescUpdatedAt is the schema descriptor for updated_at field.
+	tenantuserviewDescUpdatedAt := tenantuserviewFields[9].Descriptor()
+	// tenantuserview.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	tenantuserview.DefaultUpdatedAt = tenantuserviewDescUpdatedAt.Default.(func() time.Time)
 	todoFields := schema.Todo{}.Fields()
 	_ = todoFields
 	// todoDescTenantID is the schema descriptor for tenant_id field.

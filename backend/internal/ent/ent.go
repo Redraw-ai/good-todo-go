@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"good-todo-go/internal/ent/tenant"
 	"good-todo-go/internal/ent/tenanttodoview"
+	"good-todo-go/internal/ent/tenantuserview"
 	"good-todo-go/internal/ent/todo"
 	"good-todo-go/internal/ent/user"
 	"reflect"
@@ -78,6 +79,7 @@ func checkColumn(t, c string) error {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
 			tenant.Table:         tenant.ValidColumn,
 			tenanttodoview.Table: tenanttodoview.ValidColumn,
+			tenantuserview.Table: tenantuserview.ValidColumn,
 			todo.Table:           todo.ValidColumn,
 			user.Table:           user.ValidColumn,
 		})

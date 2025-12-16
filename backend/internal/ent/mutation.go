@@ -9,6 +9,7 @@ import (
 	"good-todo-go/internal/ent/predicate"
 	"good-todo-go/internal/ent/tenant"
 	"good-todo-go/internal/ent/tenanttodoview"
+	"good-todo-go/internal/ent/tenantuserview"
 	"good-todo-go/internal/ent/todo"
 	"good-todo-go/internal/ent/user"
 	"sync"
@@ -29,6 +30,7 @@ const (
 	// Node types.
 	TypeTenant         = "Tenant"
 	TypeTenantTodoView = "TenantTodoView"
+	TypeTenantUserView = "TenantUserView"
 	TypeTodo           = "Todo"
 	TypeUser           = "User"
 )
@@ -1531,6 +1533,770 @@ func (m *TenantTodoViewMutation) ClearEdge(name string) error {
 // It returns an error if the edge is not defined in the schema.
 func (m *TenantTodoViewMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown TenantTodoView edge %s", name)
+}
+
+// TenantUserViewMutation represents an operation that mutates the TenantUserView nodes in the graph.
+type TenantUserViewMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *string
+	tenant_id      *string
+	tenant_name    *string
+	tenant_slug    *string
+	email          *string
+	name           *string
+	role           *string
+	email_verified *bool
+	created_at     *time.Time
+	updated_at     *time.Time
+	clearedFields  map[string]struct{}
+	done           bool
+	oldValue       func(context.Context) (*TenantUserView, error)
+	predicates     []predicate.TenantUserView
+}
+
+var _ ent.Mutation = (*TenantUserViewMutation)(nil)
+
+// tenantuserviewOption allows management of the mutation configuration using functional options.
+type tenantuserviewOption func(*TenantUserViewMutation)
+
+// newTenantUserViewMutation creates new mutation for the TenantUserView entity.
+func newTenantUserViewMutation(c config, op Op, opts ...tenantuserviewOption) *TenantUserViewMutation {
+	m := &TenantUserViewMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeTenantUserView,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withTenantUserViewID sets the ID field of the mutation.
+func withTenantUserViewID(id string) tenantuserviewOption {
+	return func(m *TenantUserViewMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *TenantUserView
+		)
+		m.oldValue = func(ctx context.Context) (*TenantUserView, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().TenantUserView.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withTenantUserView sets the old TenantUserView of the mutation.
+func withTenantUserView(node *TenantUserView) tenantuserviewOption {
+	return func(m *TenantUserViewMutation) {
+		m.oldValue = func(context.Context) (*TenantUserView, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m TenantUserViewMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m TenantUserViewMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetID sets the value of the id field. Note that this
+// operation is only accepted on creation of TenantUserView entities.
+func (m *TenantUserViewMutation) SetID(id string) {
+	m.id = &id
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *TenantUserViewMutation) ID() (id string, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *TenantUserViewMutation) IDs(ctx context.Context) ([]string, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []string{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().TenantUserView.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTenantID sets the "tenant_id" field.
+func (m *TenantUserViewMutation) SetTenantID(s string) {
+	m.tenant_id = &s
+}
+
+// TenantID returns the value of the "tenant_id" field in the mutation.
+func (m *TenantUserViewMutation) TenantID() (r string, exists bool) {
+	v := m.tenant_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTenantID returns the old "tenant_id" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldTenantID(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTenantID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTenantID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTenantID: %w", err)
+	}
+	return oldValue.TenantID, nil
+}
+
+// ResetTenantID resets all changes to the "tenant_id" field.
+func (m *TenantUserViewMutation) ResetTenantID() {
+	m.tenant_id = nil
+}
+
+// SetTenantName sets the "tenant_name" field.
+func (m *TenantUserViewMutation) SetTenantName(s string) {
+	m.tenant_name = &s
+}
+
+// TenantName returns the value of the "tenant_name" field in the mutation.
+func (m *TenantUserViewMutation) TenantName() (r string, exists bool) {
+	v := m.tenant_name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTenantName returns the old "tenant_name" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldTenantName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTenantName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTenantName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTenantName: %w", err)
+	}
+	return oldValue.TenantName, nil
+}
+
+// ResetTenantName resets all changes to the "tenant_name" field.
+func (m *TenantUserViewMutation) ResetTenantName() {
+	m.tenant_name = nil
+}
+
+// SetTenantSlug sets the "tenant_slug" field.
+func (m *TenantUserViewMutation) SetTenantSlug(s string) {
+	m.tenant_slug = &s
+}
+
+// TenantSlug returns the value of the "tenant_slug" field in the mutation.
+func (m *TenantUserViewMutation) TenantSlug() (r string, exists bool) {
+	v := m.tenant_slug
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTenantSlug returns the old "tenant_slug" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldTenantSlug(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTenantSlug is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTenantSlug requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTenantSlug: %w", err)
+	}
+	return oldValue.TenantSlug, nil
+}
+
+// ResetTenantSlug resets all changes to the "tenant_slug" field.
+func (m *TenantUserViewMutation) ResetTenantSlug() {
+	m.tenant_slug = nil
+}
+
+// SetEmail sets the "email" field.
+func (m *TenantUserViewMutation) SetEmail(s string) {
+	m.email = &s
+}
+
+// Email returns the value of the "email" field in the mutation.
+func (m *TenantUserViewMutation) Email() (r string, exists bool) {
+	v := m.email
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmail returns the old "email" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldEmail(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmail is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmail requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmail: %w", err)
+	}
+	return oldValue.Email, nil
+}
+
+// ResetEmail resets all changes to the "email" field.
+func (m *TenantUserViewMutation) ResetEmail() {
+	m.email = nil
+}
+
+// SetName sets the "name" field.
+func (m *TenantUserViewMutation) SetName(s string) {
+	m.name = &s
+}
+
+// Name returns the value of the "name" field in the mutation.
+func (m *TenantUserViewMutation) Name() (r string, exists bool) {
+	v := m.name
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldName returns the old "name" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldName(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldName is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldName requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldName: %w", err)
+	}
+	return oldValue.Name, nil
+}
+
+// ResetName resets all changes to the "name" field.
+func (m *TenantUserViewMutation) ResetName() {
+	m.name = nil
+}
+
+// SetRole sets the "role" field.
+func (m *TenantUserViewMutation) SetRole(s string) {
+	m.role = &s
+}
+
+// Role returns the value of the "role" field in the mutation.
+func (m *TenantUserViewMutation) Role() (r string, exists bool) {
+	v := m.role
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRole returns the old "role" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldRole(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRole is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRole requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRole: %w", err)
+	}
+	return oldValue.Role, nil
+}
+
+// ResetRole resets all changes to the "role" field.
+func (m *TenantUserViewMutation) ResetRole() {
+	m.role = nil
+}
+
+// SetEmailVerified sets the "email_verified" field.
+func (m *TenantUserViewMutation) SetEmailVerified(b bool) {
+	m.email_verified = &b
+}
+
+// EmailVerified returns the value of the "email_verified" field in the mutation.
+func (m *TenantUserViewMutation) EmailVerified() (r bool, exists bool) {
+	v := m.email_verified
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEmailVerified returns the old "email_verified" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldEmailVerified(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEmailVerified is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEmailVerified requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEmailVerified: %w", err)
+	}
+	return oldValue.EmailVerified, nil
+}
+
+// ResetEmailVerified resets all changes to the "email_verified" field.
+func (m *TenantUserViewMutation) ResetEmailVerified() {
+	m.email_verified = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *TenantUserViewMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *TenantUserViewMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *TenantUserViewMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *TenantUserViewMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *TenantUserViewMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the TenantUserView entity.
+// If the TenantUserView object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *TenantUserViewMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *TenantUserViewMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// Where appends a list predicates to the TenantUserViewMutation builder.
+func (m *TenantUserViewMutation) Where(ps ...predicate.TenantUserView) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the TenantUserViewMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *TenantUserViewMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.TenantUserView, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *TenantUserViewMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *TenantUserViewMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (TenantUserView).
+func (m *TenantUserViewMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *TenantUserViewMutation) Fields() []string {
+	fields := make([]string, 0, 9)
+	if m.tenant_id != nil {
+		fields = append(fields, tenantuserview.FieldTenantID)
+	}
+	if m.tenant_name != nil {
+		fields = append(fields, tenantuserview.FieldTenantName)
+	}
+	if m.tenant_slug != nil {
+		fields = append(fields, tenantuserview.FieldTenantSlug)
+	}
+	if m.email != nil {
+		fields = append(fields, tenantuserview.FieldEmail)
+	}
+	if m.name != nil {
+		fields = append(fields, tenantuserview.FieldName)
+	}
+	if m.role != nil {
+		fields = append(fields, tenantuserview.FieldRole)
+	}
+	if m.email_verified != nil {
+		fields = append(fields, tenantuserview.FieldEmailVerified)
+	}
+	if m.created_at != nil {
+		fields = append(fields, tenantuserview.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, tenantuserview.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *TenantUserViewMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case tenantuserview.FieldTenantID:
+		return m.TenantID()
+	case tenantuserview.FieldTenantName:
+		return m.TenantName()
+	case tenantuserview.FieldTenantSlug:
+		return m.TenantSlug()
+	case tenantuserview.FieldEmail:
+		return m.Email()
+	case tenantuserview.FieldName:
+		return m.Name()
+	case tenantuserview.FieldRole:
+		return m.Role()
+	case tenantuserview.FieldEmailVerified:
+		return m.EmailVerified()
+	case tenantuserview.FieldCreatedAt:
+		return m.CreatedAt()
+	case tenantuserview.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *TenantUserViewMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case tenantuserview.FieldTenantID:
+		return m.OldTenantID(ctx)
+	case tenantuserview.FieldTenantName:
+		return m.OldTenantName(ctx)
+	case tenantuserview.FieldTenantSlug:
+		return m.OldTenantSlug(ctx)
+	case tenantuserview.FieldEmail:
+		return m.OldEmail(ctx)
+	case tenantuserview.FieldName:
+		return m.OldName(ctx)
+	case tenantuserview.FieldRole:
+		return m.OldRole(ctx)
+	case tenantuserview.FieldEmailVerified:
+		return m.OldEmailVerified(ctx)
+	case tenantuserview.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case tenantuserview.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown TenantUserView field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TenantUserViewMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case tenantuserview.FieldTenantID:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTenantID(v)
+		return nil
+	case tenantuserview.FieldTenantName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTenantName(v)
+		return nil
+	case tenantuserview.FieldTenantSlug:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTenantSlug(v)
+		return nil
+	case tenantuserview.FieldEmail:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmail(v)
+		return nil
+	case tenantuserview.FieldName:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetName(v)
+		return nil
+	case tenantuserview.FieldRole:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRole(v)
+		return nil
+	case tenantuserview.FieldEmailVerified:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEmailVerified(v)
+		return nil
+	case tenantuserview.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case tenantuserview.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown TenantUserView field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *TenantUserViewMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *TenantUserViewMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *TenantUserViewMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown TenantUserView numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *TenantUserViewMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *TenantUserViewMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *TenantUserViewMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown TenantUserView nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *TenantUserViewMutation) ResetField(name string) error {
+	switch name {
+	case tenantuserview.FieldTenantID:
+		m.ResetTenantID()
+		return nil
+	case tenantuserview.FieldTenantName:
+		m.ResetTenantName()
+		return nil
+	case tenantuserview.FieldTenantSlug:
+		m.ResetTenantSlug()
+		return nil
+	case tenantuserview.FieldEmail:
+		m.ResetEmail()
+		return nil
+	case tenantuserview.FieldName:
+		m.ResetName()
+		return nil
+	case tenantuserview.FieldRole:
+		m.ResetRole()
+		return nil
+	case tenantuserview.FieldEmailVerified:
+		m.ResetEmailVerified()
+		return nil
+	case tenantuserview.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case tenantuserview.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown TenantUserView field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *TenantUserViewMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *TenantUserViewMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *TenantUserViewMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *TenantUserViewMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *TenantUserViewMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *TenantUserViewMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *TenantUserViewMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown TenantUserView unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *TenantUserViewMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown TenantUserView edge %s", name)
 }
 
 // TodoMutation represents an operation that mutates the Todo nodes in the graph.

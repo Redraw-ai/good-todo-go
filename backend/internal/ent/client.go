@@ -13,6 +13,7 @@ import (
 
 	"good-todo-go/internal/ent/tenant"
 	"good-todo-go/internal/ent/tenanttodoview"
+	"good-todo-go/internal/ent/tenantuserview"
 	"good-todo-go/internal/ent/todo"
 	"good-todo-go/internal/ent/user"
 
@@ -31,6 +32,8 @@ type Client struct {
 	Tenant *TenantClient
 	// TenantTodoView is the client for interacting with the TenantTodoView builders.
 	TenantTodoView *TenantTodoViewClient
+	// TenantUserView is the client for interacting with the TenantUserView builders.
+	TenantUserView *TenantUserViewClient
 	// Todo is the client for interacting with the Todo builders.
 	Todo *TodoClient
 	// User is the client for interacting with the User builders.
@@ -48,6 +51,7 @@ func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.Tenant = NewTenantClient(c.config)
 	c.TenantTodoView = NewTenantTodoViewClient(c.config)
+	c.TenantUserView = NewTenantUserViewClient(c.config)
 	c.Todo = NewTodoClient(c.config)
 	c.User = NewUserClient(c.config)
 }
@@ -144,6 +148,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		config:         cfg,
 		Tenant:         NewTenantClient(cfg),
 		TenantTodoView: NewTenantTodoViewClient(cfg),
+		TenantUserView: NewTenantUserViewClient(cfg),
 		Todo:           NewTodoClient(cfg),
 		User:           NewUserClient(cfg),
 	}, nil
@@ -167,6 +172,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		config:         cfg,
 		Tenant:         NewTenantClient(cfg),
 		TenantTodoView: NewTenantTodoViewClient(cfg),
+		TenantUserView: NewTenantUserViewClient(cfg),
 		Todo:           NewTodoClient(cfg),
 		User:           NewUserClient(cfg),
 	}, nil
@@ -199,6 +205,7 @@ func (c *Client) Close() error {
 func (c *Client) Use(hooks ...Hook) {
 	c.Tenant.Use(hooks...)
 	c.TenantTodoView.Use(hooks...)
+	c.TenantUserView.Use(hooks...)
 	c.Todo.Use(hooks...)
 	c.User.Use(hooks...)
 }
@@ -208,6 +215,7 @@ func (c *Client) Use(hooks ...Hook) {
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	c.Tenant.Intercept(interceptors...)
 	c.TenantTodoView.Intercept(interceptors...)
+	c.TenantUserView.Intercept(interceptors...)
 	c.Todo.Intercept(interceptors...)
 	c.User.Intercept(interceptors...)
 }
@@ -219,6 +227,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.Tenant.mutate(ctx, m)
 	case *TenantTodoViewMutation:
 		return c.TenantTodoView.mutate(ctx, m)
+	case *TenantUserViewMutation:
+		return c.TenantUserView.mutate(ctx, m)
 	case *TodoMutation:
 		return c.Todo.mutate(ctx, m)
 	case *UserMutation:
@@ -507,6 +517,139 @@ func (c *TenantTodoViewClient) mutate(ctx context.Context, m *TenantTodoViewMuta
 		return (&TenantTodoViewDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown TenantTodoView mutation op: %q", m.Op())
+	}
+}
+
+// TenantUserViewClient is a client for the TenantUserView schema.
+type TenantUserViewClient struct {
+	config
+}
+
+// NewTenantUserViewClient returns a client for the TenantUserView from the given config.
+func NewTenantUserViewClient(c config) *TenantUserViewClient {
+	return &TenantUserViewClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `tenantuserview.Hooks(f(g(h())))`.
+func (c *TenantUserViewClient) Use(hooks ...Hook) {
+	c.hooks.TenantUserView = append(c.hooks.TenantUserView, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `tenantuserview.Intercept(f(g(h())))`.
+func (c *TenantUserViewClient) Intercept(interceptors ...Interceptor) {
+	c.inters.TenantUserView = append(c.inters.TenantUserView, interceptors...)
+}
+
+// Create returns a builder for creating a TenantUserView entity.
+func (c *TenantUserViewClient) Create() *TenantUserViewCreate {
+	mutation := newTenantUserViewMutation(c.config, OpCreate)
+	return &TenantUserViewCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of TenantUserView entities.
+func (c *TenantUserViewClient) CreateBulk(builders ...*TenantUserViewCreate) *TenantUserViewCreateBulk {
+	return &TenantUserViewCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *TenantUserViewClient) MapCreateBulk(slice any, setFunc func(*TenantUserViewCreate, int)) *TenantUserViewCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &TenantUserViewCreateBulk{err: fmt.Errorf("calling to TenantUserViewClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*TenantUserViewCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &TenantUserViewCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for TenantUserView.
+func (c *TenantUserViewClient) Update() *TenantUserViewUpdate {
+	mutation := newTenantUserViewMutation(c.config, OpUpdate)
+	return &TenantUserViewUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *TenantUserViewClient) UpdateOne(_m *TenantUserView) *TenantUserViewUpdateOne {
+	mutation := newTenantUserViewMutation(c.config, OpUpdateOne, withTenantUserView(_m))
+	return &TenantUserViewUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *TenantUserViewClient) UpdateOneID(id string) *TenantUserViewUpdateOne {
+	mutation := newTenantUserViewMutation(c.config, OpUpdateOne, withTenantUserViewID(id))
+	return &TenantUserViewUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for TenantUserView.
+func (c *TenantUserViewClient) Delete() *TenantUserViewDelete {
+	mutation := newTenantUserViewMutation(c.config, OpDelete)
+	return &TenantUserViewDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *TenantUserViewClient) DeleteOne(_m *TenantUserView) *TenantUserViewDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *TenantUserViewClient) DeleteOneID(id string) *TenantUserViewDeleteOne {
+	builder := c.Delete().Where(tenantuserview.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &TenantUserViewDeleteOne{builder}
+}
+
+// Query returns a query builder for TenantUserView.
+func (c *TenantUserViewClient) Query() *TenantUserViewQuery {
+	return &TenantUserViewQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeTenantUserView},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a TenantUserView entity by its id.
+func (c *TenantUserViewClient) Get(ctx context.Context, id string) (*TenantUserView, error) {
+	return c.Query().Where(tenantuserview.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *TenantUserViewClient) GetX(ctx context.Context, id string) *TenantUserView {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *TenantUserViewClient) Hooks() []Hook {
+	return c.hooks.TenantUserView
+}
+
+// Interceptors returns the client interceptors.
+func (c *TenantUserViewClient) Interceptors() []Interceptor {
+	return c.inters.TenantUserView
+}
+
+func (c *TenantUserViewClient) mutate(ctx context.Context, m *TenantUserViewMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&TenantUserViewCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&TenantUserViewUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&TenantUserViewUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&TenantUserViewDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown TenantUserView mutation op: %q", m.Op())
 	}
 }
 
@@ -827,9 +970,9 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		Tenant, TenantTodoView, Todo, User []ent.Hook
+		Tenant, TenantTodoView, TenantUserView, Todo, User []ent.Hook
 	}
 	inters struct {
-		Tenant, TenantTodoView, Todo, User []ent.Interceptor
+		Tenant, TenantTodoView, TenantUserView, Todo, User []ent.Interceptor
 	}
 )
