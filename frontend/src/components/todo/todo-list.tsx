@@ -5,11 +5,11 @@ import { TodoResponse } from '@/api/public/model/components-schemas-todo';
 
 interface TodoListProps {
   todos: TodoResponse[];
-  isOwner?: boolean;
+  currentUserId?: string;
   emptyMessage?: string;
 }
 
-export function TodoList({ todos, isOwner = true, emptyMessage = 'No todos yet' }: TodoListProps) {
+export function TodoList({ todos, currentUserId, emptyMessage = 'Todoがありません' }: TodoListProps) {
   if (todos.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -21,7 +21,11 @@ export function TodoList({ todos, isOwner = true, emptyMessage = 'No todos yet' 
   return (
     <div className="space-y-3">
       {todos.map((todo) => (
-        <TodoItem key={todo.id} todo={todo} isOwner={isOwner} />
+        <TodoItem
+          key={todo.id}
+          todo={todo}
+          isOwner={currentUserId === todo.user_id}
+        />
       ))}
     </div>
   );

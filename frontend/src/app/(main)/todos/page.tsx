@@ -57,7 +57,7 @@ export default function TodosPage() {
             </div>
             <Button variant="ghost" size="sm" onClick={logout}>
               <LogOut className="h-4 w-4 mr-2" />
-              Logout
+              ログアウト
             </Button>
           </div>
         </div>
@@ -65,17 +65,17 @@ export default function TodosPage() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-semibold">Your Todos</h2>
+          <h2 className="text-2xl font-semibold">Todo一覧</h2>
           <CreateTodoDialog />
         </div>
 
         <Tabs defaultValue="my-todos" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="my-todos">
-              My Todos ({myTodos.length})
+              マイTodo ({myTodos.length})
             </TabsTrigger>
             <TabsTrigger value="public-todos">
-              Team Todos ({publicTodos.length})
+              チーム公開Todo ({publicTodos.length})
             </TabsTrigger>
           </TabsList>
 
@@ -87,8 +87,8 @@ export default function TodosPage() {
             ) : (
               <TodoList
                 todos={myTodos}
-                isOwner={true}
-                emptyMessage="No todos yet. Create your first todo!"
+                currentUserId={user?.id}
+                emptyMessage="Todoがありません。最初のTodoを作成しましょう！"
               />
             )}
           </TabsContent>
@@ -101,8 +101,8 @@ export default function TodosPage() {
             ) : (
               <TodoList
                 todos={publicTodos}
-                isOwner={false}
-                emptyMessage="No public todos from your team yet."
+                currentUserId={user?.id}
+                emptyMessage="チームで公開されているTodoはまだありません。"
               />
             )}
           </TabsContent>

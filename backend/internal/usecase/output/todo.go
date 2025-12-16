@@ -6,6 +6,7 @@ import (
 
 type TodoOutput struct {
 	ID          string
+	UserID      string
 	Title       string
 	Description string
 	Completed   bool
@@ -29,6 +30,7 @@ func NewTodoOutput(todo *model.Todo) *TodoOutput {
 
 	return &TodoOutput{
 		ID:          todo.ID,
+		UserID:      todo.UserID,
 		Title:       todo.Title,
 		Description: todo.Description,
 		Completed:   todo.Completed,

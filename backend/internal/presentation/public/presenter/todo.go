@@ -58,6 +58,7 @@ func toTodoResponse(out *output.TodoOutput) *api.TodoResponse {
 
 	resp := &api.TodoResponse{
 		Id:          &out.ID,
+		UserId:      &out.UserID,
 		Title:       &out.Title,
 		Description: &out.Description,
 		Completed:   &out.Completed,

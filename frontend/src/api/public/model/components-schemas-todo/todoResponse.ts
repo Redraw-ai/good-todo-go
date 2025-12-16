@@ -8,6 +8,8 @@
 
 export interface TodoResponse {
   id?: string;
+  /** The ID of the user who created this todo */
+  user_id?: string;
   title?: string;
   description?: string;
   completed?: boolean;
