@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"good-todo-go/internal/ent"
+
+	entsql "entgo.io/ent/dialect/sql"
 )
 
 // TenantContextKey is the context key for tenant ID
@@ -64,4 +68,50 @@ func ClearTenantContext(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("failed to clear tenant context: %w", err)
 	}
 	return nil
+}
+
+// NewEntClientWithDB creates an ent client from an existing sql.DB
+// This allows us to share the same connection pool
+func NewEntClientWithDB(db *sql.DB) *ent.Client {
+	drv := entsql.OpenDB("postgres", db)
+	return ent.NewClient(ent.Driver(drv))
+}
+
+// WithTenantScope starts a transaction with tenant context set and returns ent.Tx
+// Usage:
+//
+//	tx, err := database.WithTenantScope(ctx, client, tenantID)
+//	if err != nil { return err }
+//	defer tx.Rollback()
+//	todos, err := tx.TenantTodoView.Query().All(ctx)
+//	return tx.Commit()
+func WithTenantScope(ctx context.Context, client *ent.Client, tenantID string) (*ent.Tx, error) {
+	tx, err := client.Tx(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start transaction: %w", err)
+	}
+
+	// Set tenant context within transaction using SET LOCAL
+	if _, err := tx.ExecContext(ctx, "SET LOCAL app.current_tenant_id = $1", tenantID); err != nil {
+		_ = tx.Rollback()
+		return nil, fmt.Errorf("failed to set tenant context: %w", err)
+	}
+
+	return tx, nil
+}
+
+// TenantScopedTx automatically gets tenantID from context and starts a scoped transaction
+// Usage:
+//
+//	tx, err := database.TenantScopedTx(ctx, client)
+//	if err != nil { return err }
+//	defer tx.Rollback()
+//	todos, err := tx.TenantTodoView.Query().All(ctx)
+//	return tx.Commit()
+func TenantScopedTx(ctx context.Context, client *ent.Client) (*ent.Tx, error) {
+	tenantID, ok := GetTenantID(ctx)
+	if !ok || tenantID == "" {
+		return nil, fmt.Errorf("tenant ID not found in context")
+	}
+	return WithTenantScope(ctx, client, tenantID)
 }

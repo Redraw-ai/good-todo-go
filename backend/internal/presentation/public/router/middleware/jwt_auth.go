@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"good-todo-go/internal/infrastructure/database"
 	"good-todo-go/internal/pkg"
 	"good-todo-go/internal/presentation/public/router/context_keys"
 
@@ -61,11 +62,15 @@ func JWTAuthMiddleware(jwtService *pkg.JWTService) echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusUnauthorized, "invalid token type")
 			}
 
-			// Set user info in context
+			// Set user info in echo context
 			c.Set(context_keys.UserIDContextKey, claims.UserID)
 			c.Set(context_keys.TenantIDContextKey, claims.TenantID)
 			c.Set(context_keys.EmailContextKey, claims.Email)
 			c.Set(context_keys.RoleContextKey, claims.Role)
+
+			// Also set tenantID in request context for database layer
+			ctx := database.WithTenantID(c.Request().Context(), claims.TenantID)
+			c.SetRequest(c.Request().WithContext(ctx))
 
 			return next(c)
 		}
