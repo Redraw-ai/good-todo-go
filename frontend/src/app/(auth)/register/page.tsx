@@ -43,12 +43,12 @@ export default function RegisterPage() {
         },
       });
       if (response.access_token && response.refresh_token) {
-        login(response.access_token, response.refresh_token);
-        toast.success('Registration successful');
+        login(response.access_token, response.refresh_token, data.tenant_slug);
+        toast.success('登録が完了しました');
         router.push('/todos');
       }
     } catch (error) {
-      toast.error('Registration failed. Please try again.');
+      toast.error('登録に失敗しました。もう一度お試しください。');
       console.error('Registration error:', error);
     } finally {
       setIsLoading(false);
@@ -59,24 +59,24 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Register</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">新規登録</CardTitle>
           <CardDescription className="text-center">
-            Create an account to get started
+            アカウントを作成して始めましょう
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="tenant_slug">Organization</Label>
+              <Label htmlFor="tenant_slug">組織ID</Label>
               <Input
                 id="tenant_slug"
                 type="text"
                 placeholder="your-organization"
                 {...registerField('tenant_slug', {
-                  required: 'Organization is required',
+                  required: '組織IDは必須です',
                   pattern: {
                     value: /^[a-z0-9-]+$/,
-                    message: 'Only lowercase letters, numbers, and hyphens allowed',
+                    message: '小文字英数字とハイフンのみ使用できます',
                   },
                 })}
               />
@@ -85,16 +85,16 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">名前</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="John Doe"
+                placeholder="山田 太郎"
                 {...registerField('name', {
-                  required: 'Name is required',
+                  required: '名前は必須です',
                   minLength: {
                     value: 2,
-                    message: 'Name must be at least 2 characters',
+                    message: '名前は2文字以上で入力してください',
                   },
                 })}
               />
@@ -103,16 +103,16 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">メールアドレス</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="name@example.com"
                 {...registerField('email', {
-                  required: 'Email is required',
+                  required: 'メールアドレスは必須です',
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
+                    message: '有効なメールアドレスを入力してください',
                   },
                 })}
               />
@@ -121,15 +121,15 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">パスワード</Label>
               <Input
                 id="password"
                 type="password"
                 {...registerField('password', {
-                  required: 'Password is required',
+                  required: 'パスワードは必須です',
                   minLength: {
                     value: 8,
-                    message: 'Password must be at least 8 characters',
+                    message: 'パスワードは8文字以上で入力してください',
                   },
                 })}
               />
@@ -138,14 +138,14 @@ export default function RegisterPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Label htmlFor="confirmPassword">パスワード（確認）</Label>
               <Input
                 id="confirmPassword"
                 type="password"
                 {...registerField('confirmPassword', {
-                  required: 'Please confirm your password',
+                  required: 'パスワードを再入力してください',
                   validate: (value) =>
-                    value === password || 'Passwords do not match',
+                    value === password || 'パスワードが一致しません',
                 })}
               />
               {errors.confirmPassword && (
@@ -155,12 +155,12 @@ export default function RegisterPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Creating account...' : 'Register'}
+              {isLoading ? '登録中...' : '登録'}
             </Button>
             <p className="text-sm text-center text-gray-600">
-              Already have an account?{' '}
+              すでにアカウントをお持ちの方は{' '}
               <Link href="/login" className="text-blue-600 hover:underline">
-                Login
+                ログイン
               </Link>
             </p>
           </CardFooter>

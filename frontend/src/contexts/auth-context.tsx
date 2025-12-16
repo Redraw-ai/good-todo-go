@@ -8,13 +8,15 @@ interface User {
   email: string;
   name: string;
   role: string;
+  tenantId: string;
+  tenantSlug: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (accessToken: string, refreshToken: string) => void;
+  login: (accessToken: string, refreshToken: string, tenantSlug: string) => void;
   logout: () => void;
 }
 
@@ -25,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const parseToken = useCallback((token: string): User | null => {
+  const parseToken = useCallback((token: string, tenantSlug: string): User | null => {
     try {
       const payload = token.split('.')[1];
       const decoded = JSON.parse(atob(payload));
@@ -34,6 +36,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: decoded.email,
         name: decoded.name || decoded.email.split('@')[0],
         role: decoded.role,
+        tenantId: decoded.tenant_id,
+        tenantSlug: tenantSlug,
       };
     } catch {
       return null;
@@ -42,23 +46,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken');
+    const tenantSlug = localStorage.getItem('tenantSlug') || '';
     if (token) {
-      const userData = parseToken(token);
+      const userData = parseToken(token, tenantSlug);
       setUser(userData);
     }
     setIsLoading(false);
   }, [parseToken]);
 
-  const login = useCallback((accessToken: string, refreshToken: string) => {
+  const login = useCallback((accessToken: string, refreshToken: string, tenantSlug: string) => {
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
-    const userData = parseToken(accessToken);
+    localStorage.setItem('tenantSlug', tenantSlug);
+    const userData = parseToken(accessToken, tenantSlug);
     setUser(userData);
   }, [parseToken]);
 
   const logout = useCallback(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    localStorage.removeItem('tenantSlug');
     setUser(null);
     router.push('/login');
   }, [router]);

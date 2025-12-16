@@ -32,12 +32,12 @@ export default function LoginPage() {
     try {
       const response = await loginMutation.mutateAsync({ data });
       if (response.access_token && response.refresh_token) {
-        login(response.access_token, response.refresh_token);
-        toast.success('Login successful');
+        login(response.access_token, response.refresh_token, data.tenant_slug);
+        toast.success('ログインしました');
         router.push('/todos');
       }
     } catch (error) {
-      toast.error('Login failed. Please check your credentials.');
+      toast.error('ログインに失敗しました。認証情報を確認してください。');
       console.error('Login error:', error);
     } finally {
       setIsLoading(false);
@@ -48,21 +48,21 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">ログイン</CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to login
+            認証情報を入力してログインしてください
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="tenant_slug">Organization</Label>
+              <Label htmlFor="tenant_slug">組織ID</Label>
               <Input
                 id="tenant_slug"
                 type="text"
                 placeholder="your-organization"
                 {...register('tenant_slug', {
-                  required: 'Organization is required',
+                  required: '組織IDは必須です',
                 })}
               />
               {errors.tenant_slug && (
@@ -70,16 +70,16 @@ export default function LoginPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">メールアドレス</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="name@example.com"
                 {...register('email', {
-                  required: 'Email is required',
+                  required: 'メールアドレスは必須です',
                   pattern: {
                     value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                    message: 'Invalid email address',
+                    message: '有効なメールアドレスを入力してください',
                   },
                 })}
               />
@@ -88,15 +88,15 @@ export default function LoginPage() {
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">パスワード</Label>
               <Input
                 id="password"
                 type="password"
                 {...register('password', {
-                  required: 'Password is required',
+                  required: 'パスワードは必須です',
                   minLength: {
                     value: 8,
-                    message: 'Password must be at least 8 characters',
+                    message: 'パスワードは8文字以上で入力してください',
                   },
                 })}
               />
@@ -107,12 +107,12 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
+              {isLoading ? 'ログイン中...' : 'ログイン'}
             </Button>
             <p className="text-sm text-center text-gray-600">
-              Don&apos;t have an account?{' '}
+              アカウントをお持ちでない方は{' '}
               <Link href="/register" className="text-blue-600 hover:underline">
-                Register
+                新規登録
               </Link>
             </p>
           </CardFooter>

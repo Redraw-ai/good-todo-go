@@ -52,11 +52,11 @@ export function CreateTodoDialog() {
       });
       queryClient.invalidateQueries({ queryKey: getGetTodosQueryKey() });
       queryClient.invalidateQueries({ queryKey: getGetPublicTodosQueryKey() });
-      toast.success('Todo created successfully');
+      toast.success('Todoを作成しました');
       reset();
       setOpen(false);
     } catch (error) {
-      toast.error('Failed to create todo');
+      toast.error('Todoの作成に失敗しました');
       console.error(error);
     }
   };
@@ -66,39 +66,39 @@ export function CreateTodoDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          New Todo
+          新規作成
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
-            <DialogTitle>Create New Todo</DialogTitle>
+            <DialogTitle>新しいTodoを作成</DialogTitle>
             <DialogDescription>
-              Add a new todo item to your list.
+              Todoの内容を入力してください。
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Title</Label>
+              <Label htmlFor="title">タイトル</Label>
               <Input
                 id="title"
-                placeholder="Enter todo title"
-                {...register('title', { required: 'Title is required' })}
+                placeholder="タイトルを入力"
+                {...register('title', { required: 'タイトルは必須です' })}
               />
               {errors.title && (
                 <p className="text-sm text-red-500">{errors.title.message}</p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="description">Description (optional)</Label>
+              <Label htmlFor="description">説明（任意）</Label>
               <Input
                 id="description"
-                placeholder="Enter description"
+                placeholder="説明を入力"
                 {...register('description')}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="due_date">Due Date (optional)</Label>
+              <Label htmlFor="due_date">期限（任意）</Label>
               <Input
                 id="due_date"
                 type="date"
@@ -112,16 +112,16 @@ export function CreateTodoDialog() {
                 onCheckedChange={(checked) => setValue('is_public', checked === true)}
               />
               <Label htmlFor="is_public" className="text-sm font-normal">
-                Make this todo public (visible to your team)
+                チームに公開する
               </Label>
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              キャンセル
             </Button>
             <Button type="submit" disabled={createTodo.isPending}>
-              {createTodo.isPending ? 'Creating...' : 'Create'}
+              {createTodo.isPending ? '作成中...' : '作成'}
             </Button>
           </DialogFooter>
         </form>
