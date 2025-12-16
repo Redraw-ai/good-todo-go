@@ -58,7 +58,6 @@ func (c *TodoController) GetTodos(ctx echo.Context, params api.GetTodosParams) e
 }
 
 func (c *TodoController) GetPublicTodos(ctx echo.Context, params api.GetPublicTodosParams) error {
-	ctx.Logger().Info("GetPublicTodos called")
 	limit := 20
 	offset := 0
 	if params.Limit != nil {
@@ -82,7 +81,6 @@ func (c *TodoController) GetPublicTodos(ctx echo.Context, params api.GetPublicTo
 }
 
 func (c *TodoController) GetTodo(ctx echo.Context, todoID string) error {
-	ctx.Logger().Infof("GetTodo called with todoID: %s", todoID)
 	userID, ok := ctx.Get(context_keys.UserIDContextKey).(string)
 	if !ok || userID == "" {
 		return echo.NewHTTPError(http.StatusUnauthorized, "unauthorized")
