@@ -46,13 +46,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken');
-    const tenantSlug = localStorage.getItem('tenantSlug') || '';
-    if (token) {
-      const userData = parseToken(token, tenantSlug);
-      setUser(userData);
-    }
-    setIsLoading(false);
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('accessToken');
+      const tenantSlug = localStorage.getItem('tenantSlug') || '';
+      if (token) {
+        // まずトークンから基本情報をセット
+        const userData = parseToken(token, tenantSlug);
+        setUser(userData);
+
+        // APIから最新のユーザー情報を取得
+        try {
+          const { getMe } = await import('@/api/public/user/user');
+          const response = await getMe();
+          if (response) {
+            setUser({
+              id: response.id ?? '',
+              email: response.email ?? '',
+              name: response.name ?? '',
+              role: response.role ?? '',
+              tenantId: response.tenant_id ?? '',
+              tenantSlug: tenantSlug,
+            });
+          }
+        } catch (error) {
+          console.error('Failed to fetch user info:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initializeAuth();
   }, [parseToken]);
 
   const login = useCallback((accessToken: string, refreshToken: string, tenantSlug: string) => {
