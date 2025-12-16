@@ -1,17 +1,13 @@
 package router
 
 import (
-	"net/http"
-
 	"github.com/labstack/echo/v4"
 )
 
 func (s *Server) GetMe(c echo.Context) error {
-	// TODO: implement with userController
-	return echo.NewHTTPError(http.StatusNotImplemented, "not implemented")
+	return s.userController.GetMe(c)
 }
 
 func (s *Server) UpdateMe(c echo.Context) error {
-	// TODO: implement with userController
-	return echo.NewHTTPError(http.StatusNotImplemented, "not implemented")
+	return s.userController.UpdateMe(c)
 }

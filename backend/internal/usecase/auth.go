@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"log"
 	"time"
 
 	"good-todo-go/internal/domain/model"
@@ -51,6 +52,7 @@ func (i *AuthInteractor) Register(ctx context.Context, in *input.RegisterInput) 
 		}
 		tenant, err = i.authRepo.CreateTenant(ctx, tenant)
 		if err != nil {
+			log.Printf("failed to create tenant: %v", err)
 			return nil, cerror.NewInternalServerError("failed to create tenant", err)
 		}
 	}

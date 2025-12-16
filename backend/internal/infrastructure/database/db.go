@@ -25,6 +25,11 @@ func NewEntClient(cfg *environment.Config) (*ent.Client, error) {
 		return nil, fmt.Errorf("failed opening connection to postgres: %w", err)
 	}
 
+	// デバッグモードを有効化（開発時のみ）
+	if cfg.AppEnv == "local" {
+		client = client.Debug()
+	}
+
 	return client, nil
 }
 
