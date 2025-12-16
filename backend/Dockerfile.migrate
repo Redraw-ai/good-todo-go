@@ -6,5 +6,5 @@ WORKDIR /app
 COPY atlas.hcl ./
 COPY internal/ent/migrate/migrations ./internal/ent/migrate/migrations
 
-# Run migration apply
-ENTRYPOINT ["atlas", "migrate", "apply", "--config", "file://atlas.hcl", "--env", "local"]
+# Run migration apply (atlas image already has atlas as entrypoint)
+CMD ["migrate", "apply", "--config", "file://atlas.hcl", "--env", "local"]
