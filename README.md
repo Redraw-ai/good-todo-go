@@ -92,8 +92,14 @@ CREATE POLICY "users_tenant_isolation" ON "users"
 
 **動作の仕組み:**
 1. JWTトークンに `tenant_id` を含める
-2. リクエスト時にミドルウェアで `SET app.current_tenant_id = '<tenant_id>'` を実行
+2. リクエスト時にトランザクション内で `SET LOCAL app.current_tenant_id = '<tenant_id>'` を実行
 3. RLSポリシーにより、自動的に該当テナントのデータのみにアクセス可能
+
+**実装のポイント:**
+
+- **`SET LOCAL`** を使用することで、設定がトランザクション内に限定され、コネクションプール環境でも安全
+- Ent ORM の **`--feature sql/execquery`** を有効化し、`tx.ExecContext()` で直接SQLを実行
+- 実装: [tenant_context.go](backend/internal/infrastructure/database/tenant_context.go)
 
 ## 主な機能
 
