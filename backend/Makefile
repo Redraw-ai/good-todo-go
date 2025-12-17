@@ -62,6 +62,19 @@ test_integration:
 	go test -v ./internal/integration_test/...
 .PHONY: test_integration
 
+test_repository:
+	go test -v ./internal/infrastructure/repository/...
+.PHONY: test_repository
+
+test:
+	go test -v ./...
+.PHONY: test
+
+test_coverage:
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+.PHONY: test_coverage
+
 # =============================================================================
 # データベースマイグレーション (Atlas)
 # =============================================================================

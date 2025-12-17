@@ -13,6 +13,7 @@ import (
 )
 
 // SetupTestClient creates a new test ent client with PostgreSQL testcontainer
+// Uses Atlas migrations for schema setup
 func SetupTestClient(t *testing.T) *ent.Client {
 	t.Helper()
 
@@ -31,14 +32,15 @@ func SetupTestClient(t *testing.T) *ent.Client {
 		}
 	})
 
+	// Run Atlas migrations
+	if err := pgContainer.RunMigrations(ctx); err != nil {
+		pgContainer.Close(ctx)
+		t.Fatalf("failed to run migrations: %v", err)
+	}
+
 	// Create ent client with PostgreSQL
 	drv := entsql.OpenDB("postgres", pgContainer.DB)
 	client := ent.NewClient(ent.Driver(drv))
-
-	// Run migrations using ent schema
-	if err := client.Schema.Create(ctx); err != nil {
-		t.Fatalf("failed to create schema: %v", err)
-	}
 
 	return client
 }
@@ -56,22 +58,15 @@ func SetupTestClientWithRLS(t *testing.T) (adminClient *ent.Client, appClient *e
 		t.Fatalf("failed to create postgres container: %v", err)
 	}
 
+	// Run Atlas migrations (includes RLS setup and app user creation)
+	if err := pgContainer.RunMigrations(ctx); err != nil {
+		pgContainer.Close(ctx)
+		t.Fatalf("failed to run migrations: %v", err)
+	}
+
 	// Create admin ent client
 	adminDrv := entsql.OpenDB("postgres", pgContainer.DB)
 	adminClient = ent.NewClient(ent.Driver(adminDrv))
-
-	// Run migrations using ent schema
-	if err := adminClient.Schema.Create(ctx); err != nil {
-		pgContainer.Close(ctx)
-		t.Fatalf("failed to create schema: %v", err)
-	}
-
-	// Setup RLS policies and app user
-	if err := pgContainer.SetupRLS(ctx); err != nil {
-		adminClient.Close()
-		pgContainer.Close(ctx)
-		t.Fatalf("failed to setup RLS: %v", err)
-	}
 
 	// Get app user DSN
 	appDSN, err := pgContainer.GetAppUserDSN(ctx)

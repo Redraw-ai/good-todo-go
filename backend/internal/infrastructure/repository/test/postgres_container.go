@@ -4,6 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/testcontainers/testcontainers-go"
@@ -74,51 +79,67 @@ func (pc *PostgresContainer) Close(ctx context.Context) error {
 	return nil
 }
 
-// SetupRLS sets up RLS policies and app user for tenant isolation testing
-func (pc *PostgresContainer) SetupRLS(ctx context.Context) error {
-	queries := []string{
-		// Enable RLS on users table
-		`ALTER TABLE users ENABLE ROW LEVEL SECURITY`,
-		`ALTER TABLE users FORCE ROW LEVEL SECURITY`,
-
-		// Enable RLS on todos table
-		`ALTER TABLE todos ENABLE ROW LEVEL SECURITY`,
-		`ALTER TABLE todos FORCE ROW LEVEL SECURITY`,
-
-		// Drop existing policies if they exist
-		`DROP POLICY IF EXISTS users_tenant_isolation ON users`,
-		`DROP POLICY IF EXISTS todos_tenant_isolation ON todos`,
-
-		// Create RLS policies
-		`CREATE POLICY users_tenant_isolation ON users
-			FOR ALL
-			USING (tenant_id = current_setting('app.current_tenant_id', true))
-			WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true))`,
-
-		`CREATE POLICY todos_tenant_isolation ON todos
-			FOR ALL
-			USING (tenant_id = current_setting('app.current_tenant_id', true))
-			WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true))`,
-
-		// Create app user for RLS testing
-		`DO $$ BEGIN
-			IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'goodtodo_app') THEN
-				CREATE USER goodtodo_app WITH PASSWORD 'app_secret';
-			END IF;
-		END $$`,
-
-		// Grant privileges to app user
-		`GRANT USAGE ON SCHEMA public TO goodtodo_app`,
-		`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO goodtodo_app`,
-		`GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO goodtodo_app`,
-		`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO goodtodo_app`,
-		`ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO goodtodo_app`,
-		`ALTER USER goodtodo_app NOBYPASSRLS`,
+// getMigrationsDir returns the path to the migrations directory
+func getMigrationsDir() (string, error) {
+	_, currentFile, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("failed to get current file path")
 	}
 
-	for _, q := range queries {
-		if _, err := pc.DB.ExecContext(ctx, q); err != nil {
-			return fmt.Errorf("failed to execute query: %s, error: %w", q, err)
+	// Navigate from internal/infrastructure/repository/test to internal/ent/migrate/migrations
+	testDir := filepath.Dir(currentFile)
+	backendDir := filepath.Join(testDir, "..", "..", "..", "..")
+	migrationsDir := filepath.Join(backendDir, "internal", "ent", "migrate", "migrations")
+
+	absPath, err := filepath.Abs(migrationsDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	return absPath, nil
+}
+
+// RunMigrations applies Atlas migration files in order
+func (pc *PostgresContainer) RunMigrations(ctx context.Context) error {
+	migrationsDir, err := getMigrationsDir()
+	if err != nil {
+		return fmt.Errorf("failed to get migrations directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return fmt.Errorf("failed to read migrations directory: %w", err)
+	}
+
+	// Get all .sql files and sort them
+	var sqlFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".sql") {
+			sqlFiles = append(sqlFiles, entry.Name())
+		}
+	}
+	sort.Strings(sqlFiles)
+
+	// Execute each migration file
+	for _, fileName := range sqlFiles {
+		filePath := filepath.Join(migrationsDir, fileName)
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to read migration file %s: %w", fileName, err)
+		}
+
+		// Skip empty files
+		sql := strings.TrimSpace(string(content))
+		if sql == "" {
+			continue
+		}
+
+		// Handle database-specific commands that might fail in test environment
+		// Skip GRANT CONNECT since test_db user is the owner
+		sql = strings.ReplaceAll(sql, "GRANT CONNECT ON DATABASE goodtodo_dev TO goodtodo_app;", "")
+
+		if _, err := pc.DB.ExecContext(ctx, sql); err != nil {
+			return fmt.Errorf("failed to execute migration %s: %w", fileName, err)
 		}
 	}
 

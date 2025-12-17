@@ -16,6 +16,7 @@ require (
 	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.40.0
 	go.uber.org/dig v1.19.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.46.0
 )
 
