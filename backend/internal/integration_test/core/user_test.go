@@ -92,3 +92,83 @@ func TestUserInteractor_GetMe_NotFound(t *testing.T) {
 	_, err := userInteractor.GetMe(ctxWithTenant, "non-existent-user-id")
 	require.Error(t, err)
 }
+
+// =============================================================================
+// RLS (Row Level Security) Tenant Isolation Tests
+// =============================================================================
+
+// TestUserInteractor_RLS_TenantIsolation verifies that RLS properly isolates users by tenant
+func TestUserInteractor_RLS_TenantIsolation(t *testing.T) {
+	t.Parallel()
+
+	// Setup with RLS enabled
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	ctx := context.Background()
+
+	// Create test data
+	dataSet := common.CreateTestDataSet(t, adminClient)
+
+	// Build dependencies
+	userRepo := repository.NewUserRepository(appClient)
+	userInteractor := usecase.NewUserInteractor(userRepo)
+
+	t.Run("Tenant1 user can get their own info", func(t *testing.T) {
+		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+
+		user, err := userInteractor.GetMe(ctxTenant1, dataSet.User1.ID)
+		require.NoError(t, err)
+		assert.Equal(t, dataSet.User1.ID, user.ID)
+		assert.Equal(t, dataSet.User1.Email, user.Email)
+	})
+
+	t.Run("Tenant1 cannot access Tenant2 user", func(t *testing.T) {
+		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+
+		// Try to get Tenant2's user - should fail (RLS blocks it)
+		_, err := userInteractor.GetMe(ctxTenant1, dataSet.User3.ID)
+		require.Error(t, err)
+	})
+
+	t.Run("Tenant2 cannot access Tenant1 user", func(t *testing.T) {
+		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
+
+		// Try to get Tenant1's user - should fail (RLS blocks it)
+		_, err := userInteractor.GetMe(ctxTenant2, dataSet.User1.ID)
+		require.Error(t, err)
+	})
+}
+
+// TestUserInteractor_RLS_UpdateIsolation verifies that RLS prevents cross-tenant user updates
+func TestUserInteractor_RLS_UpdateIsolation(t *testing.T) {
+	t.Parallel()
+
+	// Setup with RLS enabled
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	ctx := context.Background()
+
+	// Create test data
+	dataSet := common.CreateTestDataSet(t, adminClient)
+
+	// Build dependencies
+	userRepo := repository.NewUserRepository(appClient)
+	userInteractor := usecase.NewUserInteractor(userRepo)
+
+	t.Run("Tenant2 cannot update Tenant1 user", func(t *testing.T) {
+		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
+
+		// Try to update Tenant1's user - should fail (RLS blocks finding it)
+		newName := "Hacked Name"
+		_, err := userInteractor.UpdateMe(ctxTenant2, &input.UpdateUserInput{
+			UserID: dataSet.User1.ID,
+			Name:   &newName,
+		})
+		require.Error(t, err)
+
+		// Verify the user wasn't updated
+		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+		user, err := userInteractor.GetMe(ctxTenant1, dataSet.User1.ID)
+		require.NoError(t, err)
+		assert.Equal(t, dataSet.User1.Name, user.Name)
+		assert.NotEqual(t, newName, user.Name)
+	})
+}
