@@ -20,7 +20,7 @@ func TestUser_GetMe(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -59,13 +59,13 @@ func TestUser_GetMe(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err := deps.UserController.GetMe(c)
 
@@ -93,7 +93,7 @@ func TestUser_UpdateMe(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -128,7 +128,7 @@ func TestUser_UpdateMe(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			body, err := json.Marshal(tt.requestBody)
 			require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestUser_UpdateMe(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err = deps.UserController.UpdateMe(c)
 
@@ -168,7 +168,7 @@ func TestUser_RLS_TenantIsolation(t *testing.T) {
 
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
 	dataSet := common.CreateTestDataSet(t, adminClient)
-	deps := common.BuildTestDependencies(appClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name        string
@@ -202,13 +202,13 @@ func TestUser_RLS_TenantIsolation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err := deps.UserController.GetMe(c)
 
@@ -228,7 +228,7 @@ func TestUser_RLS_UpdateIsolation(t *testing.T) {
 
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
 	dataSet := common.CreateTestDataSet(t, adminClient)
-	deps := common.BuildTestDependencies(appClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name        string
@@ -262,7 +262,7 @@ func TestUser_RLS_UpdateIsolation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			body, err := json.Marshal(tt.requestBody)
 			require.NoError(t, err)
@@ -272,7 +272,7 @@ func TestUser_RLS_UpdateIsolation(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err = deps.UserController.UpdateMe(c)
 

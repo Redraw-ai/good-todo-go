@@ -20,7 +20,7 @@ func TestTodo_Create(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -71,7 +71,7 @@ func TestTodo_Create(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			body, err := json.Marshal(tt.requestBody)
 			require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestTodo_Create(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err = deps.TodoController.CreateTodo(c)
 
@@ -110,7 +110,7 @@ func TestTodo_GetTodos(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -146,13 +146,13 @@ func TestTodo_GetTodos(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/todos", nil)
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			params := api.GetTodosParams{
 				Limit:  tt.limit,
@@ -177,7 +177,7 @@ func TestTodo_GetPublicTodos(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -207,13 +207,13 @@ func TestTodo_GetPublicTodos(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/todos/public", nil)
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			params := api.GetPublicTodosParams{}
 
@@ -238,7 +238,7 @@ func TestTodo_GetTodo(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -277,7 +277,7 @@ func TestTodo_GetTodo(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/todos/"+tt.todoID, nil)
 			rec := httptest.NewRecorder()
@@ -285,7 +285,7 @@ func TestTodo_GetTodo(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetParamNames("todoId")
 			c.SetParamValues(tt.todoID)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err := deps.TodoController.GetTodo(c, tt.todoID)
 
@@ -308,7 +308,7 @@ func TestTodo_Update(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -347,7 +347,7 @@ func TestTodo_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			body, err := json.Marshal(tt.requestBody)
 			require.NoError(t, err)
@@ -359,7 +359,7 @@ func TestTodo_Update(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetParamNames("todoId")
 			c.SetParamValues(tt.todoID)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err = deps.TodoController.UpdateTodo(c, tt.todoID)
 
@@ -390,7 +390,7 @@ func TestTodo_Delete(t *testing.T) {
 
 	client := common.SetupTestClient(t)
 	dataSet := common.CreateTestDataSet(t, client)
-	deps := common.BuildTestDependencies(client)
+	deps := BuildTestDependencies(client)
 
 	tests := []struct {
 		name           string
@@ -421,7 +421,7 @@ func TestTodo_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodDelete, "/todos/"+tt.todoID, nil)
 			rec := httptest.NewRecorder()
@@ -429,7 +429,7 @@ func TestTodo_Delete(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetParamNames("todoId")
 			c.SetParamValues(tt.todoID)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err := deps.TodoController.DeleteTodo(c, tt.todoID)
 
@@ -456,14 +456,14 @@ func TestTodo_RLS_TenantIsolation(t *testing.T) {
 
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
 	dataSet := common.CreateTestDataSet(t, adminClient)
-	deps := common.BuildTestDependencies(appClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
-		name           string
-		userID         string
-		tenantID       string
-		expectedTotal  int
-		description    string
+		name          string
+		userID        string
+		tenantID      string
+		expectedTotal int
+		description   string
 	}{
 		{
 			name:          "Tenant1 user sees only Tenant1 public todos",
@@ -483,13 +483,13 @@ func TestTodo_RLS_TenantIsolation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/todos/public", nil)
 			rec := httptest.NewRecorder()
 
 			c := e.NewContext(req, rec)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			params := api.GetPublicTodosParams{}
 
@@ -510,7 +510,7 @@ func TestTodo_RLS_CrossTenantAccess(t *testing.T) {
 
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
 	dataSet := common.CreateTestDataSet(t, adminClient)
-	deps := common.BuildTestDependencies(appClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name        string
@@ -537,7 +537,7 @@ func TestTodo_RLS_CrossTenantAccess(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			req := httptest.NewRequest(http.MethodGet, "/todos/"+tt.todoID, nil)
 			rec := httptest.NewRecorder()
@@ -545,7 +545,7 @@ func TestTodo_RLS_CrossTenantAccess(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetParamNames("todoId")
 			c.SetParamValues(tt.todoID)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			err := deps.TodoController.GetTodo(c, tt.todoID)
 			require.Error(t, err, tt.description)
@@ -558,7 +558,7 @@ func TestTodo_RLS_CrossTenantModification(t *testing.T) {
 
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
 	dataSet := common.CreateTestDataSet(t, adminClient)
-	deps := common.BuildTestDependencies(appClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name        string
@@ -588,7 +588,7 @@ func TestTodo_RLS_CrossTenantModification(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := common.SetupEcho()
+			e := SetupEcho()
 
 			var req *http.Request
 			if tt.operation == "update" {
@@ -603,7 +603,7 @@ func TestTodo_RLS_CrossTenantModification(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetParamNames("todoId")
 			c.SetParamValues(tt.todoID)
-			common.SetAuthContext(c, tt.userID, tt.tenantID)
+			SetAuthContext(c, tt.userID, tt.tenantID)
 
 			var err error
 			if tt.operation == "update" {

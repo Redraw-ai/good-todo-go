@@ -1,4 +1,4 @@
-package common
+package integration_test
 
 import (
 	"good-todo-go/internal/ent"

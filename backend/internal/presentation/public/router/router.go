@@ -48,7 +48,15 @@ func NewRouter() (*echo.Echo, *environment.Config, *ent.Client, error) {
 	e := echo.New()
 
 	// ミドルウェア設定
-	e.Use(echoMiddleware.Logger())
+	e.Use(echoMiddleware.RequestLoggerWithConfig(echoMiddleware.RequestLoggerConfig{
+		LogStatus:   true,
+		LogURI:      true,
+		LogError:    true,
+		HandleError: true,
+		LogValuesFunc: func(c echo.Context, v echoMiddleware.RequestLoggerValues) error {
+			return nil
+		},
+	}))
 	e.Use(echoMiddleware.Recover())
 	e.Use(echoMiddleware.CORS())
 
@@ -57,9 +65,9 @@ func NewRouter() (*echo.Echo, *environment.Config, *ent.Client, error) {
 	container.Provide(NewServer)
 
 	var (
-		server    *Server
-		client    *ent.Client
-		jwtSvc    *pkg.JWTService
+		server *Server
+		client *ent.Client
+		jwtSvc *pkg.JWTService
 	)
 
 	if err := container.Invoke(func(s *Server) {
