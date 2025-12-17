@@ -20,6 +20,8 @@ Go + Echo によるバックエンド API と Next.js + shadcn/ui によるフ�
 | Public API | ✅ 完成 |
 | Admin API | 🚧 未実装 |
 | Frontend (shadcn/ui) | ✅ 完成 |
+| Unit Tests | ✅ 実装済み |
+| Integration Tests | ✅ 実装済み |
 
 ## 技術スタック
 
@@ -188,6 +190,7 @@ make migrate_down n=1    # マイグレーションロールバック
 # テスト
 make test_unit           # ユニットテスト
 make test_integration    # 統合テスト
+make test                # 全テスト実行
 
 # コード品質
 make fmt                 # フォーマット
@@ -202,6 +205,66 @@ npm run dev              # 開発サーバー起動
 npm run build            # ビルド
 npm run generate:api     # APIクライアント生成
 npm run lint             # リント
+```
+
+## テスト
+
+### テスト構成
+
+バックエンドでは2種類のテストを実装しています：
+
+| テスト種別 | 対象 | 実行コマンド |
+|-----------|------|-------------|
+| Unit Tests | Usecase層のビジネスロジック | `make test_unit` |
+| Integration Tests | Controller → Usecase → Repository の結合 | `make test_integration` |
+
+### Unit Tests
+
+モック (`mockgen`) を使用して、依存関係を分離したテストを実行します。
+
+```
+internal/
+├── usecase/
+│   ├── todo.go
+│   ├── todo_test.go      # TodoInteractorのテスト
+│   ├── user.go
+│   └── user_test.go      # UserInteractorのテスト
+└── domain/repository/mock/  # mockgenで生成されたモック
+```
+
+### Integration Tests
+
+**Testcontainers** を使用して、実際のPostgreSQLコンテナでRLSを含む統合テストを実行します。
+
+```
+internal/integration_test/
+├── common/
+│   ├── setup.go          # テストコンテナのセットアップ
+│   └── testdata.go       # テストデータ作成ヘルパー
+├── core/
+│   ├── auth_test.go      # 認証テスト
+│   ├── todo_test.go      # Todoテスト
+│   ├── user_test.go      # ユーザーテスト
+│   └── helper_test.go    # テスト用ヘルパー
+└── rls_test.go           # RLSテナント分離テスト
+```
+
+**特徴:**
+
+- 各テストで独立したPostgreSQLコンテナを起動
+- Atlasマイグレーションを自動適用
+- RLS適用クライアント (`app_user`) でテストを実行し、本番環境と同じ条件でテスト
+- テナント分離 (RLS) の動作を検証
+
+```bash
+# 統合テスト実行例
+make test_integration
+
+# 実行結果 (抜粋)
+=== RUN   TestTodo_GetPublicTodos
+--- PASS: TestTodo_GetPublicTodos (3.61s)
+    --- PASS: TestTodo_GetPublicTodos/success_-_get_public_todos_in_Tenant1 (0.01s)
+    --- PASS: TestTodo_GetPublicTodos/success_-_get_public_todos_in_Tenant2 (0.00s)
 ```
 
 ## API エンドポイント
