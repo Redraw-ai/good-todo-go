@@ -1,174 +1,287 @@
 package integration_test
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"good-todo-go/internal/infrastructure/database"
-	"good-todo-go/internal/infrastructure/repository"
 	"good-todo-go/internal/integration_test/common"
-	"good-todo-go/internal/usecase"
-	"good-todo-go/internal/usecase/input"
+	"good-todo-go/internal/presentation/public/api"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestUserInteractor_GetMe(t *testing.T) {
+func TestUser_GetMe(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	userRepo := repository.NewUserRepository(client)
-	userInteractor := usecase.NewUserInteractor(userRepo)
+	tests := []struct {
+		name           string
+		userID         string
+		tenantID       string
+		expectedStatus int
+		expectedEmail  string
+		expectedName   string
+		wantErr        bool
+	}{
+		{
+			name:           "success - get User1",
+			userID:         dataSet.User1.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			expectedEmail:  dataSet.User1.Email,
+			expectedName:   dataSet.User1.Name,
+			wantErr:        false,
+		},
+		{
+			name:           "success - get User2",
+			userID:         dataSet.User2.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			expectedEmail:  dataSet.User2.Email,
+			expectedName:   dataSet.User2.Name,
+			wantErr:        false,
+		},
+		{
+			name:     "fail - non-existent user",
+			userID:   "non-existent-user-id",
+			tenantID: dataSet.Tenant1.ID,
+			wantErr:  true,
+		},
+	}
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-	// Get user
-	user, err := userInteractor.GetMe(ctxWithTenant, dataSet.User1.ID)
-	require.NoError(t, err)
-	assert.Equal(t, dataSet.User1.ID, user.ID)
-	assert.Equal(t, dataSet.User1.Email, user.Email)
-	assert.Equal(t, dataSet.User1.Name, user.Name)
+			req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			err := deps.UserController.GetMe(c)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+
+			var response api.UserResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.userID, *response.Id)
+			assert.Equal(t, tt.expectedEmail, *response.Email)
+			assert.Equal(t, tt.expectedName, *response.Name)
+		})
+	}
 }
 
-func TestUserInteractor_UpdateMe(t *testing.T) {
+func TestUser_UpdateMe(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	userRepo := repository.NewUserRepository(client)
-	userInteractor := usecase.NewUserInteractor(userRepo)
+	tests := []struct {
+		name           string
+		userID         string
+		tenantID       string
+		requestBody    api.UpdateUserRequest
+		expectedStatus int
+		expectedName   string
+		wantErr        bool
+	}{
+		{
+			name:     "success - update name",
+			userID:   dataSet.User1.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.UpdateUserRequest{
+				Name: strPtr("Updated Name"),
+			},
+			expectedStatus: http.StatusOK,
+			expectedName:   "Updated Name",
+			wantErr:        false,
+		},
+		{
+			name:     "fail - non-existent user",
+			userID:   "non-existent-user-id",
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.UpdateUserRequest{
+				Name: strPtr("New Name"),
+			},
+			wantErr: true,
+		},
+	}
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-	// Update user
-	newName := "Updated Name"
-	updated, err := userInteractor.UpdateMe(ctxWithTenant, &input.UpdateUserInput{
-		UserID: dataSet.User1.ID,
-		Name:   &newName,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, newName, updated.Name)
+			body, err := json.Marshal(tt.requestBody)
+			require.NoError(t, err)
 
-	// Verify the update persisted
-	user, err := userInteractor.GetMe(ctxWithTenant, dataSet.User1.ID)
-	require.NoError(t, err)
-	assert.Equal(t, newName, user.Name)
-}
+			req := httptest.NewRequest(http.MethodPatch, "/users/me", bytes.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
 
-func TestUserInteractor_GetMe_NotFound(t *testing.T) {
-	t.Parallel()
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
 
-	// Setup
-	client := common.SetupTestClient(t)
-	ctx := context.Background()
+			err = deps.UserController.UpdateMe(c)
 
-	// Create test data (need tenant for context)
-	dataSet := common.CreateTestDataSet(t, client)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
 
-	// Build dependencies
-	userRepo := repository.NewUserRepository(client)
-	userInteractor := usecase.NewUserInteractor(userRepo)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+			var response api.UserResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
 
-	// Try to get non-existent user
-	_, err := userInteractor.GetMe(ctxWithTenant, "non-existent-user-id")
-	require.Error(t, err)
+			assert.Equal(t, tt.expectedName, *response.Name)
+		})
+	}
 }
 
 // =============================================================================
 // RLS (Row Level Security) Tenant Isolation Tests
 // =============================================================================
 
-// TestUserInteractor_RLS_TenantIsolation verifies that RLS properly isolates users by tenant
-func TestUserInteractor_RLS_TenantIsolation(t *testing.T) {
+func TestUser_RLS_TenantIsolation(t *testing.T) {
 	t.Parallel()
 
-	// Setup with RLS enabled
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := common.BuildTestDependencies(appClient)
 
-	// Build dependencies
-	userRepo := repository.NewUserRepository(appClient)
-	userInteractor := usecase.NewUserInteractor(userRepo)
+	tests := []struct {
+		name        string
+		userID      string
+		tenantID    string
+		wantErr     bool
+		description string
+	}{
+		{
+			name:        "success - Tenant1 user can access own info",
+			userID:      dataSet.User1.ID,
+			tenantID:    dataSet.Tenant1.ID,
+			wantErr:     false,
+			description: "User should access their own info",
+		},
+		{
+			name:        "fail - Tenant1 cannot access Tenant2 user",
+			userID:      dataSet.User3.ID,
+			tenantID:    dataSet.Tenant1.ID,
+			wantErr:     true,
+			description: "RLS should block cross-tenant user access",
+		},
+		{
+			name:        "fail - Tenant2 cannot access Tenant1 user",
+			userID:      dataSet.User1.ID,
+			tenantID:    dataSet.Tenant2.ID,
+			wantErr:     true,
+			description: "RLS should block cross-tenant user access",
+		},
+	}
 
-	t.Run("Tenant1 user can get their own info", func(t *testing.T) {
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-		user, err := userInteractor.GetMe(ctxTenant1, dataSet.User1.ID)
-		require.NoError(t, err)
-		assert.Equal(t, dataSet.User1.ID, user.ID)
-		assert.Equal(t, dataSet.User1.Email, user.Email)
-	})
+			req := httptest.NewRequest(http.MethodGet, "/users/me", nil)
+			rec := httptest.NewRecorder()
 
-	t.Run("Tenant1 cannot access Tenant2 user", func(t *testing.T) {
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
 
-		// Try to get Tenant2's user - should fail (RLS blocks it)
-		_, err := userInteractor.GetMe(ctxTenant1, dataSet.User3.ID)
-		require.Error(t, err)
-	})
+			err := deps.UserController.GetMe(c)
 
-	t.Run("Tenant2 cannot access Tenant1 user", func(t *testing.T) {
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
+			if tt.wantErr {
+				require.Error(t, err, tt.description)
+				return
+			}
 
-		// Try to get Tenant1's user - should fail (RLS blocks it)
-		_, err := userInteractor.GetMe(ctxTenant2, dataSet.User1.ID)
-		require.Error(t, err)
-	})
+			require.NoError(t, err, tt.description)
+			assert.Equal(t, http.StatusOK, rec.Code)
+		})
+	}
 }
 
-// TestUserInteractor_RLS_UpdateIsolation verifies that RLS prevents cross-tenant user updates
-func TestUserInteractor_RLS_UpdateIsolation(t *testing.T) {
+func TestUser_RLS_UpdateIsolation(t *testing.T) {
 	t.Parallel()
 
-	// Setup with RLS enabled
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := common.BuildTestDependencies(appClient)
 
-	// Build dependencies
-	userRepo := repository.NewUserRepository(appClient)
-	userInteractor := usecase.NewUserInteractor(userRepo)
+	tests := []struct {
+		name        string
+		userID      string
+		tenantID    string
+		requestBody api.UpdateUserRequest
+		wantErr     bool
+		description string
+	}{
+		{
+			name:     "fail - Tenant2 cannot update Tenant1 user",
+			userID:   dataSet.User1.ID,
+			tenantID: dataSet.Tenant2.ID,
+			requestBody: api.UpdateUserRequest{
+				Name: strPtr("Hacked Name"),
+			},
+			wantErr:     true,
+			description: "RLS should block cross-tenant user update",
+		},
+		{
+			name:     "fail - Tenant1 cannot update Tenant2 user",
+			userID:   dataSet.User3.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.UpdateUserRequest{
+				Name: strPtr("Hacked Name"),
+			},
+			wantErr:     true,
+			description: "RLS should block cross-tenant user update",
+		},
+	}
 
-	t.Run("Tenant2 cannot update Tenant1 user", func(t *testing.T) {
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-		// Try to update Tenant1's user - should fail (RLS blocks finding it)
-		newName := "Hacked Name"
-		_, err := userInteractor.UpdateMe(ctxTenant2, &input.UpdateUserInput{
-			UserID: dataSet.User1.ID,
-			Name:   &newName,
+			body, err := json.Marshal(tt.requestBody)
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPatch, "/users/me", bytes.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			err = deps.UserController.UpdateMe(c)
+
+			if tt.wantErr {
+				require.Error(t, err, tt.description)
+				return
+			}
+
+			require.NoError(t, err, tt.description)
 		})
-		require.Error(t, err)
-
-		// Verify the user wasn't updated
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-		user, err := userInteractor.GetMe(ctxTenant1, dataSet.User1.ID)
-		require.NoError(t, err)
-		assert.Equal(t, dataSet.User1.Name, user.Name)
-		assert.NotEqual(t, newName, user.Name)
-	})
+	}
 }

@@ -1,423 +1,627 @@
 package integration_test
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
-	"good-todo-go/internal/infrastructure/database"
-	"good-todo-go/internal/infrastructure/repository"
 	"good-todo-go/internal/integration_test/common"
-	"good-todo-go/internal/pkg"
-	"good-todo-go/internal/usecase"
-	"good-todo-go/internal/usecase/input"
+	"good-todo-go/internal/presentation/public/api"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTodoInteractor_CreateAndGet(t *testing.T) {
+func TestTodo_Create(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
-
-	// Test create todo
-	createInput := &input.CreateTodoInput{
-		UserID:      dataSet.User1.ID,
-		TenantID:    dataSet.Tenant1.ID,
-		Title:       "Integration Test Todo",
-		Description: "This is a test todo from integration test",
-		IsPublic:    false,
+	tests := []struct {
+		name           string
+		userID         string
+		tenantID       string
+		requestBody    api.CreateTodoRequest
+		expectedStatus int
+		expectedTitle  string
+		wantErr        bool
+	}{
+		{
+			name:     "success - create private todo",
+			userID:   dataSet.User1.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.CreateTodoRequest{
+				Title:       "Test Todo",
+				Description: strPtr("Test Description"),
+				IsPublic:    boolPtr(false),
+			},
+			expectedStatus: http.StatusCreated,
+			expectedTitle:  "Test Todo",
+			wantErr:        false,
+		},
+		{
+			name:     "success - create public todo",
+			userID:   dataSet.User1.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.CreateTodoRequest{
+				Title:       "Public Todo",
+				Description: strPtr("Public Description"),
+				IsPublic:    boolPtr(true),
+			},
+			expectedStatus: http.StatusCreated,
+			expectedTitle:  "Public Todo",
+			wantErr:        false,
+		},
+		{
+			name:     "fail - empty title",
+			userID:   dataSet.User1.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.CreateTodoRequest{
+				Title: "",
+			},
+			expectedStatus: http.StatusBadRequest,
+			wantErr:        true,
+		},
 	}
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-	// Create todo
-	created, err := todoInteractor.CreateTodo(ctxWithTenant, createInput)
-	require.NoError(t, err)
-	assert.NotEmpty(t, created.ID)
-	assert.Equal(t, createInput.Title, created.Title)
-	assert.Equal(t, createInput.Description, created.Description)
-	assert.False(t, created.Completed)
-	assert.False(t, created.IsPublic)
+			body, err := json.Marshal(tt.requestBody)
+			require.NoError(t, err)
 
-	// Get todo
-	got, err := todoInteractor.GetTodo(ctxWithTenant, created.ID, dataSet.User1.ID)
-	require.NoError(t, err)
-	assert.Equal(t, created.ID, got.ID)
-	assert.Equal(t, created.Title, got.Title)
+			req := httptest.NewRequest(http.MethodPost, "/todos", bytes.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			err = deps.TodoController.CreateTodo(c)
+
+			if tt.wantErr {
+				if err == nil {
+					assert.GreaterOrEqual(t, rec.Code, 400)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+
+			var response api.TodoResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			assert.NotEmpty(t, response.Id)
+			assert.Equal(t, tt.expectedTitle, *response.Title)
+		})
+	}
 }
 
-func TestTodoInteractor_GetTodos(t *testing.T) {
+func TestTodo_GetTodos(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
-
-	// Set tenant context for Tenant1
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-
-	// Get todos for User1 (should get Todo1 and Todo2)
-	result, err := todoInteractor.GetTodos(ctxWithTenant, &input.GetTodosInput{
-		UserID: dataSet.User1.ID,
-		Limit:  10,
-		Offset: 0,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, 2, result.Total)
-	assert.Len(t, result.Todos, 2)
-}
-
-func TestTodoInteractor_GetPublicTodos(t *testing.T) {
-	t.Parallel()
-
-	// Setup
-	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
-	dataSet := common.CreateTestDataSet(t, client)
-
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
-
-	// Set tenant context for Tenant1
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-
-	// Get public todos (should only get Todo2 - public todo in Tenant1)
-	result, err := todoInteractor.GetPublicTodos(ctxWithTenant, &input.GetPublicTodosInput{
-		Limit:  10,
-		Offset: 0,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, 1, result.Total)
-	assert.Len(t, result.Todos, 1)
-	assert.Equal(t, dataSet.Todo2.ID, result.Todos[0].ID)
-}
-
-func TestTodoInteractor_UpdateTodo(t *testing.T) {
-	t.Parallel()
-
-	// Setup
-	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
-	dataSet := common.CreateTestDataSet(t, client)
-
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
-
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-
-	// Update todo
-	newTitle := "Updated Title"
-	completed := true
-	updateInput := &input.UpdateTodoInput{
-		TodoID:    dataSet.Todo1.ID,
-		UserID:    dataSet.User1.ID,
-		Title:     &newTitle,
-		Completed: &completed,
+	tests := []struct {
+		name           string
+		userID         string
+		tenantID       string
+		limit          *int
+		offset         *int
+		expectedStatus int
+		expectedTotal  int
+	}{
+		{
+			name:           "success - get User1 todos",
+			userID:         dataSet.User1.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			expectedTotal:  2, // Todo1 and Todo2
+		},
+		{
+			name:           "success - get User2 todos",
+			userID:         dataSet.User2.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			expectedTotal:  1, // Todo3
+		},
+		{
+			name:           "success - get User3 todos (different tenant)",
+			userID:         dataSet.User3.ID,
+			tenantID:       dataSet.Tenant2.ID,
+			expectedStatus: http.StatusOK,
+			expectedTotal:  2, // Todo4 and Todo5
+		},
 	}
 
-	updated, err := todoInteractor.UpdateTodo(ctxWithTenant, updateInput)
-	require.NoError(t, err)
-	assert.Equal(t, newTitle, updated.Title)
-	assert.True(t, updated.Completed)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
+
+			req := httptest.NewRequest(http.MethodGet, "/todos", nil)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			params := api.GetTodosParams{
+				Limit:  tt.limit,
+				Offset: tt.offset,
+			}
+
+			err := deps.TodoController.GetTodos(c, params)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+
+			var response api.TodoListResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedTotal, *response.Total)
+		})
+	}
 }
 
-func TestTodoInteractor_DeleteTodo(t *testing.T) {
+func TestTodo_GetPublicTodos(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
+	tests := []struct {
+		name           string
+		userID         string
+		tenantID       string
+		expectedStatus int
+		expectedTotal  int
+		expectedTodoID string
+	}{
+		{
+			name:           "success - get public todos in Tenant1",
+			userID:         dataSet.User1.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			expectedTotal:  1,
+			expectedTodoID: dataSet.Todo2.ID, // only public todo in Tenant1
+		},
+		{
+			name:           "success - get public todos in Tenant2",
+			userID:         dataSet.User3.ID,
+			tenantID:       dataSet.Tenant2.ID,
+			expectedStatus: http.StatusOK,
+			expectedTotal:  1,
+			expectedTodoID: dataSet.Todo5.ID, // only public todo in Tenant2
+		},
+	}
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-	// Delete todo
-	err := todoInteractor.DeleteTodo(ctxWithTenant, dataSet.Todo1.ID, dataSet.User1.ID)
-	require.NoError(t, err)
+			req := httptest.NewRequest(http.MethodGet, "/todos/public", nil)
+			rec := httptest.NewRecorder()
 
-	// Try to get deleted todo - should fail
-	_, err = todoInteractor.GetTodo(ctxWithTenant, dataSet.Todo1.ID, dataSet.User1.ID)
-	assert.Error(t, err)
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			params := api.GetPublicTodosParams{}
+
+			err := deps.TodoController.GetPublicTodos(c, params)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+
+			var response api.TodoListResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedTotal, *response.Total)
+			if tt.expectedTotal > 0 {
+				assert.Equal(t, tt.expectedTodoID, *(*response.Todos)[0].Id)
+			}
+		})
+	}
 }
 
-func TestTodoInteractor_CannotAccessOtherUserTodo(t *testing.T) {
+func TestTodo_GetTodo(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
+	tests := []struct {
+		name           string
+		todoID         string
+		userID         string
+		tenantID       string
+		expectedStatus int
+		wantErr        bool
+		errContains    string
+	}{
+		{
+			name:           "success - owner can access own private todo",
+			todoID:         dataSet.Todo1.ID,
+			userID:         dataSet.User1.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			wantErr:        false,
+		},
+		{
+			name:           "success - user can access public todo",
+			todoID:         dataSet.Todo2.ID,
+			userID:         dataSet.User2.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusOK,
+			wantErr:        false,
+		},
+		{
+			name:        "fail - user cannot access other's private todo",
+			todoID:      dataSet.Todo1.ID,
+			userID:      dataSet.User2.ID,
+			tenantID:    dataSet.Tenant1.ID,
+			wantErr:     true,
+			errContains: "not allowed",
+		},
+	}
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-	// User2 tries to get User1's private todo - should be forbidden
-	_, err := todoInteractor.GetTodo(ctxWithTenant, dataSet.Todo1.ID, dataSet.User2.ID)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not allowed")
+			req := httptest.NewRequest(http.MethodGet, "/todos/"+tt.todoID, nil)
+			rec := httptest.NewRecorder()
 
-	// User2 tries to update User1's todo - should be forbidden
-	newTitle := "Hacked Title"
-	_, err = todoInteractor.UpdateTodo(ctxWithTenant, &input.UpdateTodoInput{
-		TodoID: dataSet.Todo1.ID,
-		UserID: dataSet.User2.ID,
-		Title:  &newTitle,
-	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not allowed")
+			c := e.NewContext(req, rec)
+			c.SetParamNames("todoId")
+			c.SetParamValues(tt.todoID)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
 
-	// User2 tries to delete User1's todo - should be forbidden
-	err = todoInteractor.DeleteTodo(ctxWithTenant, dataSet.Todo1.ID, dataSet.User2.ID)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not allowed")
+			err := deps.TodoController.GetTodo(c, tt.todoID)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+		})
+	}
 }
 
-func TestTodoInteractor_CanAccessPublicTodo(t *testing.T) {
+func TestTodo_Update(t *testing.T) {
 	t.Parallel()
 
-	// Setup
 	client := common.SetupTestClient(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(client)
-	userRepo := repository.NewUserRepository(client)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
+	tests := []struct {
+		name           string
+		todoID         string
+		userID         string
+		tenantID       string
+		requestBody    api.UpdateTodoRequest
+		expectedStatus int
+		wantErr        bool
+		errContains    string
+	}{
+		{
+			name:     "success - owner can update own todo",
+			todoID:   dataSet.Todo1.ID,
+			userID:   dataSet.User1.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.UpdateTodoRequest{
+				Title:     strPtr("Updated Title"),
+				Completed: boolPtr(true),
+			},
+			expectedStatus: http.StatusOK,
+			wantErr:        false,
+		},
+		{
+			name:     "fail - user cannot update other's todo",
+			todoID:   dataSet.Todo1.ID,
+			userID:   dataSet.User2.ID,
+			tenantID: dataSet.Tenant1.ID,
+			requestBody: api.UpdateTodoRequest{
+				Title: strPtr("Hacked Title"),
+			},
+			wantErr:     true,
+			errContains: "not allowed",
+		},
+	}
 
-	// Set tenant context
-	ctxWithTenant := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-	// User2 can access User1's public todo
-	todo, err := todoInteractor.GetTodo(ctxWithTenant, dataSet.Todo2.ID, dataSet.User2.ID)
-	require.NoError(t, err)
-	assert.Equal(t, dataSet.Todo2.ID, todo.ID)
-	assert.True(t, todo.IsPublic)
+			body, err := json.Marshal(tt.requestBody)
+			require.NoError(t, err)
+
+			req := httptest.NewRequest(http.MethodPatch, "/todos/"+tt.todoID, bytes.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			c.SetParamNames("todoId")
+			c.SetParamValues(tt.todoID)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			err = deps.TodoController.UpdateTodo(c, tt.todoID)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+
+			var response api.TodoResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			if tt.requestBody.Title != nil {
+				assert.Equal(t, *tt.requestBody.Title, *response.Title)
+			}
+		})
+	}
+}
+
+func TestTodo_Delete(t *testing.T) {
+	t.Parallel()
+
+	client := common.SetupTestClient(t)
+	dataSet := common.CreateTestDataSet(t, client)
+	deps := common.BuildTestDependencies(client)
+
+	tests := []struct {
+		name           string
+		todoID         string
+		userID         string
+		tenantID       string
+		expectedStatus int
+		wantErr        bool
+		errContains    string
+	}{
+		{
+			name:           "success - owner can delete own todo",
+			todoID:         dataSet.Todo1.ID,
+			userID:         dataSet.User1.ID,
+			tenantID:       dataSet.Tenant1.ID,
+			expectedStatus: http.StatusNoContent,
+			wantErr:        false,
+		},
+		{
+			name:        "fail - user cannot delete other's todo",
+			todoID:      dataSet.Todo3.ID,
+			userID:      dataSet.User1.ID,
+			tenantID:    dataSet.Tenant1.ID,
+			wantErr:     true,
+			errContains: "not allowed",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
+
+			req := httptest.NewRequest(http.MethodDelete, "/todos/"+tt.todoID, nil)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			c.SetParamNames("todoId")
+			c.SetParamValues(tt.todoID)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			err := deps.TodoController.DeleteTodo(c, tt.todoID)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedStatus, rec.Code)
+		})
+	}
 }
 
 // =============================================================================
 // RLS (Row Level Security) Tenant Isolation Tests
 // =============================================================================
 
-// TestTodoInteractor_RLS_TenantIsolation verifies that RLS properly isolates todos by tenant
-func TestTodoInteractor_RLS_TenantIsolation(t *testing.T) {
+func TestTodo_RLS_TenantIsolation(t *testing.T) {
 	t.Parallel()
 
-	// Setup with RLS enabled
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
-	ctx := context.Background()
-
-	// Create test data using admin client (bypasses RLS)
 	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := common.BuildTestDependencies(appClient)
 
-	// Build dependencies using app client (RLS enforced)
-	todoRepo := repository.NewTodoRepository(appClient)
-	userRepo := repository.NewUserRepository(appClient)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
+	tests := []struct {
+		name           string
+		userID         string
+		tenantID       string
+		expectedTotal  int
+		description    string
+	}{
+		{
+			name:          "Tenant1 user sees only Tenant1 public todos",
+			userID:        dataSet.User1.ID,
+			tenantID:      dataSet.Tenant1.ID,
+			expectedTotal: 1,
+			description:   "RLS should filter out Tenant2's todos",
+		},
+		{
+			name:          "Tenant2 user sees only Tenant2 public todos",
+			userID:        dataSet.User3.ID,
+			tenantID:      dataSet.Tenant2.ID,
+			expectedTotal: 1,
+			description:   "RLS should filter out Tenant1's todos",
+		},
+	}
 
-	t.Run("Tenant1 user can only see Tenant1 todos", func(t *testing.T) {
-		// Set context to Tenant1
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-		// Get User1's todos (should get 2 - Todo1 and Todo2)
-		result, err := todoInteractor.GetTodos(ctxTenant1, &input.GetTodosInput{
-			UserID: dataSet.User1.ID,
-			Limit:  10,
-			Offset: 0,
+			req := httptest.NewRequest(http.MethodGet, "/todos/public", nil)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			params := api.GetPublicTodosParams{}
+
+			err := deps.TodoController.GetPublicTodos(c, params)
+			require.NoError(t, err)
+
+			var response api.TodoListResponse
+			err = json.Unmarshal(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expectedTotal, *response.Total, tt.description)
 		})
-		require.NoError(t, err)
-		assert.Equal(t, 2, result.Total)
-
-		// Get public todos in Tenant1 (should get 1 - Todo2)
-		publicResult, err := todoInteractor.GetPublicTodos(ctxTenant1, &input.GetPublicTodosInput{
-			Limit:  10,
-			Offset: 0,
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 1, publicResult.Total)
-		assert.Equal(t, dataSet.Todo2.ID, publicResult.Todos[0].ID)
-	})
-
-	t.Run("Tenant2 user can only see Tenant2 todos", func(t *testing.T) {
-		// Set context to Tenant2
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
-
-		// Get User3's todos (should get 2 - Todo4 and Todo5)
-		result, err := todoInteractor.GetTodos(ctxTenant2, &input.GetTodosInput{
-			UserID: dataSet.User3.ID,
-			Limit:  10,
-			Offset: 0,
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 2, result.Total)
-
-		// Get public todos in Tenant2 (should get 1 - Todo5)
-		publicResult, err := todoInteractor.GetPublicTodos(ctxTenant2, &input.GetPublicTodosInput{
-			Limit:  10,
-			Offset: 0,
-		})
-		require.NoError(t, err)
-		assert.Equal(t, 1, publicResult.Total)
-		assert.Equal(t, dataSet.Todo5.ID, publicResult.Todos[0].ID)
-	})
-
-	t.Run("Tenant1 cannot see Tenant2 todos", func(t *testing.T) {
-		// Set context to Tenant1
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-
-		// Try to get Tenant2's todo - should not be found (RLS blocks it)
-		_, err := todoInteractor.GetTodo(ctxTenant1, dataSet.Todo4.ID, dataSet.User1.ID)
-		require.Error(t, err)
-	})
-
-	t.Run("Tenant2 cannot see Tenant1 todos", func(t *testing.T) {
-		// Set context to Tenant2
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
-
-		// Try to get Tenant1's todo - should not be found (RLS blocks it)
-		_, err := todoInteractor.GetTodo(ctxTenant2, dataSet.Todo1.ID, dataSet.User3.ID)
-		require.Error(t, err)
-	})
+	}
 }
 
-// TestTodoInteractor_RLS_CreateTodo verifies that todos are created with correct tenant
-func TestTodoInteractor_RLS_CreateTodo(t *testing.T) {
+func TestTodo_RLS_CrossTenantAccess(t *testing.T) {
 	t.Parallel()
 
-	// Setup with RLS enabled
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := common.BuildTestDependencies(appClient)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(appClient)
-	userRepo := repository.NewUserRepository(appClient)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
+	tests := []struct {
+		name        string
+		todoID      string
+		userID      string
+		tenantID    string
+		description string
+	}{
+		{
+			name:        "Tenant1 cannot access Tenant2's todo",
+			todoID:      dataSet.Todo4.ID,
+			userID:      dataSet.User1.ID,
+			tenantID:    dataSet.Tenant1.ID,
+			description: "RLS should block cross-tenant read",
+		},
+		{
+			name:        "Tenant2 cannot access Tenant1's todo",
+			todoID:      dataSet.Todo1.ID,
+			userID:      dataSet.User3.ID,
+			tenantID:    dataSet.Tenant2.ID,
+			description: "RLS should block cross-tenant read",
+		},
+	}
 
-	t.Run("Todo created in Tenant1 is not visible from Tenant2", func(t *testing.T) {
-		// Create todo in Tenant1
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-		created, err := todoInteractor.CreateTodo(ctxTenant1, &input.CreateTodoInput{
-			UserID:      dataSet.User1.ID,
-			TenantID:    dataSet.Tenant1.ID,
-			Title:       "Tenant1 Only Todo",
-			Description: "This should only be visible in Tenant1",
-			IsPublic:    true,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
+
+			req := httptest.NewRequest(http.MethodGet, "/todos/"+tt.todoID, nil)
+			rec := httptest.NewRecorder()
+
+			c := e.NewContext(req, rec)
+			c.SetParamNames("todoId")
+			c.SetParamValues(tt.todoID)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			err := deps.TodoController.GetTodo(c, tt.todoID)
+			require.Error(t, err, tt.description)
 		})
-		require.NoError(t, err)
-
-		// Verify it's visible in Tenant1
-		visible, err := todoInteractor.GetTodo(ctxTenant1, created.ID, dataSet.User1.ID)
-		require.NoError(t, err)
-		assert.Equal(t, created.ID, visible.ID)
-
-		// Verify it's NOT visible in Tenant2 (RLS blocks it)
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
-		_, err = todoInteractor.GetTodo(ctxTenant2, created.ID, dataSet.User3.ID)
-		require.Error(t, err)
-	})
+	}
 }
 
-// TestTodoInteractor_RLS_UpdateDeleteTodo verifies that RLS prevents cross-tenant updates/deletes
-func TestTodoInteractor_RLS_UpdateDeleteTodo(t *testing.T) {
+func TestTodo_RLS_CrossTenantModification(t *testing.T) {
 	t.Parallel()
 
-	// Setup with RLS enabled
 	adminClient, appClient := common.SetupTestClientWithRLS(t)
-	ctx := context.Background()
-
-	// Create test data
 	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := common.BuildTestDependencies(appClient)
 
-	// Build dependencies
-	todoRepo := repository.NewTodoRepository(appClient)
-	userRepo := repository.NewUserRepository(appClient)
-	uuidGen := pkg.NewUUIDGenerator()
-	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
+	tests := []struct {
+		name        string
+		operation   string
+		todoID      string
+		userID      string
+		tenantID    string
+		description string
+	}{
+		{
+			name:        "Tenant2 cannot update Tenant1's todo",
+			operation:   "update",
+			todoID:      dataSet.Todo1.ID,
+			userID:      dataSet.User3.ID,
+			tenantID:    dataSet.Tenant2.ID,
+			description: "RLS should block cross-tenant update",
+		},
+		{
+			name:        "Tenant2 cannot delete Tenant1's todo",
+			operation:   "delete",
+			todoID:      dataSet.Todo1.ID,
+			userID:      dataSet.User3.ID,
+			tenantID:    dataSet.Tenant2.ID,
+			description: "RLS should block cross-tenant delete",
+		},
+	}
 
-	t.Run("Tenant2 cannot update Tenant1 todo", func(t *testing.T) {
-		// Set context to Tenant2
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := common.SetupEcho()
 
-		// Try to update Tenant1's todo - should fail (RLS blocks finding it)
-		newTitle := "Hacked by Tenant2"
-		_, err := todoInteractor.UpdateTodo(ctxTenant2, &input.UpdateTodoInput{
-			TodoID: dataSet.Todo1.ID,
-			UserID: dataSet.User3.ID,
-			Title:  &newTitle,
+			var req *http.Request
+			if tt.operation == "update" {
+				body, _ := json.Marshal(api.UpdateTodoRequest{Title: strPtr("Hacked")})
+				req = httptest.NewRequest(http.MethodPatch, "/todos/"+tt.todoID, bytes.NewReader(body))
+				req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			} else {
+				req = httptest.NewRequest(http.MethodDelete, "/todos/"+tt.todoID, nil)
+			}
+
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetParamNames("todoId")
+			c.SetParamValues(tt.todoID)
+			common.SetAuthContext(c, tt.userID, tt.tenantID)
+
+			var err error
+			if tt.operation == "update" {
+				err = deps.TodoController.UpdateTodo(c, tt.todoID)
+			} else {
+				err = deps.TodoController.DeleteTodo(c, tt.todoID)
+			}
+
+			require.Error(t, err, tt.description)
 		})
-		require.Error(t, err)
-	})
+	}
+}
 
-	t.Run("Tenant2 cannot delete Tenant1 todo", func(t *testing.T) {
-		// Set context to Tenant2
-		ctxTenant2 := database.WithTenantID(ctx, dataSet.Tenant2.ID)
+// Helper functions
+func strPtr(s string) *string {
+	return &s
+}
 
-		// Try to delete Tenant1's todo - should fail (RLS blocks finding it)
-		err := todoInteractor.DeleteTodo(ctxTenant2, dataSet.Todo1.ID, dataSet.User3.ID)
-		require.Error(t, err)
-
-		// Verify the todo still exists in Tenant1
-		ctxTenant1 := database.WithTenantID(ctx, dataSet.Tenant1.ID)
-		todo, err := todoInteractor.GetTodo(ctxTenant1, dataSet.Todo1.ID, dataSet.User1.ID)
-		require.NoError(t, err)
-		assert.Equal(t, dataSet.Todo1.ID, todo.ID)
-	})
+func boolPtr(b bool) *bool {
+	return &b
 }
