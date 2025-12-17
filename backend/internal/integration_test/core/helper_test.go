@@ -17,35 +17,44 @@ import (
 // TestDependencies holds all the dependencies for integration tests
 type TestDependencies struct {
 	Client         *ent.Client
+	AuthController *controller.AuthController
 	TodoController *controller.TodoController
 	UserController *controller.UserController
+	JWTService     *pkg.JWTService
 }
 
 // BuildTestDependencies creates all dependencies for integration tests
 func BuildTestDependencies(client *ent.Client) *TestDependencies {
 	// Repositories
+	authRepo := repository.NewAuthRepository(client)
 	todoRepo := repository.NewTodoRepository(client)
 	userRepo := repository.NewUserRepository(client)
 
 	// Services
 	uuidGen := pkg.NewUUIDGenerator()
+	jwtService := pkg.NewJWTService("test-secret-key-for-integration-tests", 3600, 86400)
 
 	// Usecases
+	authInteractor := usecase.NewAuthInteractor(authRepo, jwtService, uuidGen)
 	todoInteractor := usecase.NewTodoInteractor(todoRepo, userRepo, uuidGen)
 	userInteractor := usecase.NewUserInteractor(userRepo)
 
 	// Presenters
+	authPresenter := presenter.NewAuthPresenter()
 	todoPresenter := presenter.NewTodoPresenter()
 	userPresenter := presenter.NewUserPresenter()
 
 	// Controllers
+	authController := controller.NewAuthController(authInteractor, authPresenter)
 	todoController := controller.NewTodoController(todoInteractor, todoPresenter)
 	userController := controller.NewUserController(userInteractor, userPresenter)
 
 	return &TestDependencies{
 		Client:         client,
+		AuthController: authController,
 		TodoController: todoController,
 		UserController: userController,
+		JWTService:     jwtService,
 	}
 }
 

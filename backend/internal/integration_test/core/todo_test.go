@@ -18,9 +18,9 @@ import (
 func TestTodo_Create(t *testing.T) {
 	t.Parallel()
 
-	client := common.SetupTestClient(t)
-	dataSet := common.CreateTestDataSet(t, client)
-	deps := BuildTestDependencies(client)
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name           string
@@ -108,9 +108,9 @@ func TestTodo_Create(t *testing.T) {
 func TestTodo_GetTodos(t *testing.T) {
 	t.Parallel()
 
-	client := common.SetupTestClient(t)
-	dataSet := common.CreateTestDataSet(t, client)
-	deps := BuildTestDependencies(client)
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name           string
@@ -175,9 +175,10 @@ func TestTodo_GetTodos(t *testing.T) {
 func TestTodo_GetPublicTodos(t *testing.T) {
 	t.Parallel()
 
-	client := common.SetupTestClient(t)
-	dataSet := common.CreateTestDataSet(t, client)
-	deps := BuildTestDependencies(client)
+	// Use RLS-enabled client to ensure tenant isolation works correctly
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name           string
@@ -236,9 +237,9 @@ func TestTodo_GetPublicTodos(t *testing.T) {
 func TestTodo_GetTodo(t *testing.T) {
 	t.Parallel()
 
-	client := common.SetupTestClient(t)
-	dataSet := common.CreateTestDataSet(t, client)
-	deps := BuildTestDependencies(client)
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name           string
@@ -306,9 +307,9 @@ func TestTodo_GetTodo(t *testing.T) {
 func TestTodo_Update(t *testing.T) {
 	t.Parallel()
 
-	client := common.SetupTestClient(t)
-	dataSet := common.CreateTestDataSet(t, client)
-	deps := BuildTestDependencies(client)
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name           string
@@ -388,9 +389,9 @@ func TestTodo_Update(t *testing.T) {
 func TestTodo_Delete(t *testing.T) {
 	t.Parallel()
 
-	client := common.SetupTestClient(t)
-	dataSet := common.CreateTestDataSet(t, client)
-	deps := BuildTestDependencies(client)
+	adminClient, appClient := common.SetupTestClientWithRLS(t)
+	dataSet := common.CreateTestDataSet(t, adminClient)
+	deps := BuildTestDependencies(appClient)
 
 	tests := []struct {
 		name           string
